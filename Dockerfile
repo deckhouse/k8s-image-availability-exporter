@@ -5,7 +5,7 @@ ADD . /go/src/app
 
 RUN go get -d -v ./...
 
-RUN CGO_ENABLED=0 go build -a -ldflags '-extldflags "-static"' -o /go/bin/k8s-image-existence-exporter cmd/main.go
+RUN CGO_ENABLED=0 go build -a -ldflags '-extldflags "-static"' -o /go/bin/k8s-image-existence-exporter main.go
 
 FROM gcr.io/distroless/static-debian10
 COPY --from=build /go/bin/k8s-image-existence-exporter /
