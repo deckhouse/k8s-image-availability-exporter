@@ -15,7 +15,7 @@ type AvailabilityMode int
 
 const (
 	Available AvailabilityMode = iota
-	DoesNotExist
+	Absent
 	BadImageName
 	RegistryUnavailable
 	AuthnFailure
@@ -27,7 +27,7 @@ const (
 func AvailabilityModeDescMap() map[AvailabilityMode]string {
 	return map[AvailabilityMode]string{
 		Available:           "available",
-		DoesNotExist:        "does_not_exist",
+		Absent:              "absent",
 		BadImageName:        "bad_image_format",
 		RegistryUnavailable: "registry_unavailable",
 		AuthnFailure:        "authentication_failure",

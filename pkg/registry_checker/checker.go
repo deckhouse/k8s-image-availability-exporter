@@ -231,8 +231,8 @@ func checkManifestExistence(log *logrus.Entry, imageName string, kc *keychain) s
 		if transpErr != nil {
 			for _, transportError := range transpErr.Errors {
 				if transportError.Code == transport.ManifestUnknownErrorCode {
-					log.WithField("availability_mode", store.DoesNotExist.String()).Error(err)
-					return store.DoesNotExist
+					log.WithField("availability_mode", store.Absent.String()).Error(err)
+					return store.Absent
 				}
 
 				if transportError.Code == transport.UnauthorizedErrorCode {
