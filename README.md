@@ -1,7 +1,7 @@
 # k8s-image-existence-exporter
 
-[![Docker images](https://img.shields.io/docker/automated/flant/k8s-image-existence-exporter)](https://hub.docker.com/r/flant/k8s-image-existence-exporter)
-[![Latest Docker image](https://img.shields.io/docker/v/flant/k8s-image-existence-exporter?sort=semver)](https://hub.docker.com/r/flant/k8s-image-existence-exporter)
+[![Docker images](https://img.shields.io/docker/automated/flant/k8s-image-availability-exporter)](https://hub.docker.com/r/flant/k8s-image-availability-exporter)
+[![Latest Docker image](https://img.shields.io/docker/v/flant/k8s-image-availability-exporter?sort=semver)](https://hub.docker.com/r/flant/k8s-image-availability-exporter)
 
 ## Deploying
 
