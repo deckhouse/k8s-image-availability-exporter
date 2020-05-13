@@ -2,6 +2,7 @@ package store
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -9,6 +10,36 @@ import (
 
 	"github.com/emirpasic/gods/trees/binaryheap"
 )
+
+type AvailabilityMode int
+
+const (
+	Available AvailabilityMode = iota
+	DoesNotExist
+	BadImageName
+	RegistryUnavailable
+	AuthnFailure
+	AuthzFailure
+	V1Schema
+	UnknownError
+)
+
+func AvailabilityModeDescMap() map[AvailabilityMode]string {
+	return map[AvailabilityMode]string{
+		Available:           "available",
+		DoesNotExist:        "does_not_exist",
+		BadImageName:        "bad_image_format",
+		RegistryUnavailable: "registry_unavailable",
+		AuthnFailure:        "authentication_failure",
+		AuthzFailure:        "authorization_failure",
+		V1Schema:            "registry_v1_api_not_supported",
+		UnknownError:        "unknown_error",
+	}
+}
+
+func (a AvailabilityMode) String() string {
+	return AvailabilityModeDescMap()[a]
+}
 
 type ContainerInfo struct {
 	Namespace      string
@@ -20,7 +51,7 @@ type ContainerInfo struct {
 type ImageInfo struct {
 	Info      map[ContainerInfo]struct{}
 	LastCheck time.Time
-	Exists    int
+	AvailMode AvailabilityMode
 }
 
 type imageLastCheckPair struct {
@@ -77,20 +108,20 @@ func (imgStore *ImageStore) ExtractMetrics() (ret []prometheus.Metric) {
 			if image.LastCheck.IsZero() {
 				continue
 			}
-			ret = append(ret, newNamedConstMetric(k.ControllerKind, k.ControllerName, k.Namespace, k.Container, imageName, float64(image.Exists)))
+			ret = append(ret, newNamedConstMetrics(k.ControllerKind, k.ControllerName, k.Namespace, k.Container, imageName, image.AvailMode)...)
 		}
 	}
 
 	return
 }
 
-func (imgStore *ImageStore) AddOrUpdateImage(imageName string, lastCheck time.Time, existsSlice ...bool) {
+func (imgStore *ImageStore) AddOrUpdateImage(imageName string, lastCheck time.Time, availMode ...AvailabilityMode) {
 	imgStore.lock.Lock()
 	defer imgStore.lock.Unlock()
 
-	var exists int
-	if len(existsSlice) != 0 && existsSlice[0] {
-		exists = 1
+	var mode AvailabilityMode
+	if len(availMode) != 0 && availMode[0] != Available {
+		mode = Available
 	}
 
 	if _, ok := imgStore.imageSet[imageName]; ok && lastCheck.IsZero() {
@@ -99,7 +130,7 @@ func (imgStore *ImageStore) AddOrUpdateImage(imageName string, lastCheck time.Ti
 		imgStore.imageSet[imageName] = ImageInfo{
 			Info:      map[ContainerInfo]struct{}{},
 			LastCheck: lastCheck,
-			Exists:    exists,
+			AvailMode: mode,
 		}
 		imgStore.pq.Push(imageLastCheckPair{
 			image:     imageName,
@@ -108,7 +139,7 @@ func (imgStore *ImageStore) AddOrUpdateImage(imageName string, lastCheck time.Ti
 	} else {
 		imageInfo := imgStore.imageSet[imageName]
 		imageInfo.LastCheck = lastCheck
-		imageInfo.Exists = exists
+		imageInfo.AvailMode = mode
 		imgStore.imageSet[imageName] = imageInfo
 
 		imgStore.pq.Push(imageLastCheckPair{
@@ -169,7 +200,7 @@ func compareTimeInPair(a, b interface{}) int {
 	}
 }
 
-func newNamedConstMetric(ownerKind, ownerName, namespace, container, image string, value float64) prometheus.Metric {
+func newNamedConstMetrics(ownerKind, ownerName, namespace, container, image string, avalMode AvailabilityMode) (ret []prometheus.Metric) {
 	labels := map[string]string{
 		"namespace": namespace,
 		"container": container,
@@ -179,33 +210,34 @@ func newNamedConstMetric(ownerKind, ownerName, namespace, container, image strin
 	switch ownerKind {
 	case "Deployment":
 		labels["deployment"] = ownerName
-		return prometheus.MustNewConstMetric(
-			prometheus.NewDesc("k8s_image_existence_exporter_deployment_image_exists", "", nil, labels),
-			prometheus.GaugeValue,
-			value,
-		)
+		return getMetricByControllerKind(ownerKind, labels, avalMode)
 	case "StatefulSet":
 		labels["statefulset"] = ownerName
-		return prometheus.MustNewConstMetric(
-			prometheus.NewDesc("k8s_image_existence_exporter_statefulset_image_exists", "", nil, labels),
-			prometheus.GaugeValue,
-			value,
-		)
+		return getMetricByControllerKind(ownerKind, labels, avalMode)
 	case "DaemonSet":
 		labels["daemonset"] = ownerName
-		return prometheus.MustNewConstMetric(
-			prometheus.NewDesc("k8s_image_existence_exporter_daemonset_image_exists", "", nil, labels),
-			prometheus.GaugeValue,
-			value,
-		)
+		return getMetricByControllerKind(ownerKind, labels, avalMode)
 	case "CronJob":
 		labels["cronjob"] = ownerName
-		return prometheus.MustNewConstMetric(
-			prometheus.NewDesc("k8s_image_existence_exporter_cronjob_image_exists", "", nil, labels),
-			prometheus.GaugeValue,
-			value,
-		)
+		return getMetricByControllerKind(ownerKind, labels, avalMode)
 	default:
 		panic(fmt.Sprintf("received unknown metric name: %s", ownerKind))
 	}
+}
+
+func getMetricByControllerKind(controllerKind string, labels map[string]string, mode AvailabilityMode) (ret []prometheus.Metric) {
+	for availMode, desc := range AvailabilityModeDescMap() {
+		var value float64
+		if availMode == mode {
+			value = 1
+		}
+
+		ret = append(ret, prometheus.MustNewConstMetric(
+			prometheus.NewDesc("k8s_image_existence_exporter_"+strings.ToLower(controllerKind)+"_"+desc, "", nil, labels),
+			prometheus.GaugeValue,
+			value,
+		))
+	}
+
+	return
 }

@@ -195,12 +195,10 @@ func (rc *RegistryChecker) Check() {
 		go func(imageName string, kc *keychain) {
 			defer processingGroup.Done()
 
-			imageExists, err := checkManifestExistence(imageName, kc)
-			if err != nil {
-				logrus.WithField("image_name", image).Errorf("encountered an error while processing image %s", err)
-			}
+			log := logrus.WithField("image_name", imageName)
+			availMode := checkManifestExistence(log, imageName, kc)
 
-			rc.imageStore.AddOrUpdateImage(imageName, time.Now(), imageExists)
+			rc.imageStore.AddOrUpdateImage(imageName, time.Now(), availMode)
 		}(image, keyChain)
 
 		containerInfos := rc.controllerIndexers.GetContainerInfosForImage(image)
@@ -210,10 +208,15 @@ func (rc *RegistryChecker) Check() {
 	processingGroup.Wait()
 }
 
-func checkManifestExistence(imageName string, kc *keychain) (bool, error) {
+func checkManifestExistence(log *logrus.Entry, imageName string, kc *keychain) store.AvailabilityMode {
 	ref, err := name.ParseReference(imageName)
-	if err != nil {
-		return false, err
+	var parseErr *name.ErrBadName
+	if errors.As(err, &parseErr) {
+		log.WithField("availability_mode", store.BadImageName.String()).Error(err)
+		return store.BadImageName
+	} else if err != nil {
+		log.WithField("availability_mode", store.UnknownError.String()).Error(err)
+		return store.UnknownError
 	}
 
 	if kc != nil {
@@ -228,7 +231,18 @@ func checkManifestExistence(imageName string, kc *keychain) (bool, error) {
 		if transpErr != nil {
 			for _, transportError := range transpErr.Errors {
 				if transportError.Code == transport.ManifestUnknownErrorCode {
-					return false, nil
+					log.WithField("availability_mode", store.DoesNotExist.String()).Error(err)
+					return store.DoesNotExist
+				}
+
+				if transportError.Code == transport.UnauthorizedErrorCode {
+					log.WithField("availability_mode", store.AuthnFailure.String()).Error(err)
+					return store.AuthnFailure
+				}
+
+				if transportError.Code == transport.DeniedErrorCode {
+					log.WithField("availability_mode", store.AuthzFailure.String()).Error(err)
+					return store.AuthzFailure
 				}
 			}
 		}
@@ -236,12 +250,13 @@ func checkManifestExistence(imageName string, kc *keychain) (bool, error) {
 		var schemaErr *remote.ErrSchema1
 		errors.As(err, &schemaErr)
 		if schemaErr != nil {
-			logrus.WithField("image_name", imageName).Warnf("Skipping image: %s", schemaErr)
-			return false, nil
+			log.WithField("availability_mode", store.V1Schema.String()).Error(err)
+			return store.V1Schema
 		}
 
-		return false, err
+		log.WithField("availability_mode", store.UnknownError.String()).Error(err)
+		return store.UnknownError
 	}
 
-	return true, nil
+	return store.Available
 }
