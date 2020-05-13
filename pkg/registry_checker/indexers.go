@@ -198,10 +198,7 @@ func (ci ControllerIndexers) GetContainerInfosForImage(image string) (ret []stor
 }
 
 func (ci ControllerIndexers) GetKeychainForImage(image string) *keychain {
-	objs, err := ci.deploymentIndexer.ByIndex(imageIndexName, image)
-	if err != nil {
-		panic(err)
-	}
+	objs := ci.GetObjectsByIndex(image)
 
 	var refSet = map[string]struct{}{}
 	for _, obj := range objs {
@@ -211,20 +208,21 @@ func (ci ControllerIndexers) GetKeychainForImage(image string) *keychain {
 		}
 	}
 
-	var dereferencedPullSecrets []corev1.Secret
-	if len(refSet) != 0 {
-		for ref := range refSet {
-			secretObj, exists, err := ci.secretIndexer.GetByKey(ref)
-			if err != nil {
-				panic(err)
-			}
-			if !exists {
-				continue
-			}
-			secretPtr := secretObj.(*corev1.Secret)
-			dereferencedPullSecrets = append(dereferencedPullSecrets, *secretPtr)
-		}
+	if len(refSet) == 0 {
+		return nil
+	}
 
+	var dereferencedPullSecrets []corev1.Secret
+	for ref := range refSet {
+		secretObj, exists, err := ci.secretIndexer.GetByKey(ref)
+		if err != nil {
+			panic(err)
+		}
+		if !exists {
+			continue
+		}
+		secretPtr := secretObj.(*corev1.Secret)
+		dereferencedPullSecrets = append(dereferencedPullSecrets, *secretPtr)
 	}
 
 	kr, err := credentialprovidersecrets.MakeDockerKeyring(dereferencedPullSecrets, credentialprovider.NewDockerKeyring())

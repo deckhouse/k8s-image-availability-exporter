@@ -120,8 +120,8 @@ func (imgStore *ImageStore) AddOrUpdateImage(imageName string, lastCheck time.Ti
 	defer imgStore.lock.Unlock()
 
 	var mode AvailabilityMode
-	if len(availMode) != 0 && availMode[0] != Available {
-		mode = Available
+	if len(availMode) != 0 {
+		mode = availMode[0]
 	}
 
 	if _, ok := imgStore.imageSet[imageName]; ok && lastCheck.IsZero() {
