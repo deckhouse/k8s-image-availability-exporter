@@ -203,6 +203,7 @@ The `xxx` is replaced with:
 
 in the exporter's metrics.
 
+* `k8s_image_availability_exporter_xxx_available` — non-zero indicates *successful* image check.
 * `k8s_image_availability_exporter_xxx_bad_image_format` — non-zero indicates incorrect `image` field format.
 * `k8s_image_availability_exporter_xxx_absent` — non-zero indicates an image's manifest absence from container registry.
 * `k8s_image_availability_exporter_xxx_registry_unavailable` — non-zero indicates general registry unavailiability, perhaps, due to network outage.
