@@ -24,11 +24,10 @@ spec:
       containers:
         - args:
             - --bind-address=:8080
-            - --ignored-images="nginx:1.11"
           ports:
             - containerPort: 8080
               name: http-metrics
-          image: flant/k8s-image-availability-exporter:v0.2
+          image: flant/k8s-image-availability-exporter:v0.1.5
           imagePullPolicy: IfNotPresent
           livenessProbe:
             httpGet:
