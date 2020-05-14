@@ -17,7 +17,7 @@ import (
 
 	"k8s.io/client-go/informers"
 
-	"github.com/flant/k8s-image-existence-exporter/pkg/store"
+	"github.com/flant/k8s-image-availability-exporter/pkg/store"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
@@ -196,7 +196,7 @@ func (rc *RegistryChecker) Check() {
 			defer processingGroup.Done()
 
 			log := logrus.WithField("image_name", imageName)
-			availMode := checkManifestExistence(log, imageName, kc)
+			availMode := checkImageAvailability(log, imageName, kc)
 
 			rc.imageStore.AddOrUpdateImage(imageName, time.Now(), availMode)
 		}(image, keyChain)
@@ -208,7 +208,7 @@ func (rc *RegistryChecker) Check() {
 	processingGroup.Wait()
 }
 
-func checkManifestExistence(log *logrus.Entry, imageName string, kc *keychain) store.AvailabilityMode {
+func checkImageAvailability(log *logrus.Entry, imageName string, kc *keychain) store.AvailabilityMode {
 	ref, err := name.ParseReference(imageName)
 	var parseErr *name.ErrBadName
 	if errors.As(err, &parseErr) {

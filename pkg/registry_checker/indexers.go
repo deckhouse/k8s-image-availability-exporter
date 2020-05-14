@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/flant/k8s-image-existence-exporter/pkg/store"
+	"github.com/flant/k8s-image-availability-exporter/pkg/store"
 	credentialprovider "github.com/vdemeester/k8s-pkg-credentialprovider"
 	credentialprovidersecrets "github.com/vdemeester/k8s-pkg-credentialprovider/secrets"
 	appsv1 "k8s.io/api/apps/v1"

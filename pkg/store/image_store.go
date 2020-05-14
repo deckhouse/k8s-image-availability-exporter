@@ -233,7 +233,7 @@ func getMetricByControllerKind(controllerKind string, labels map[string]string, 
 		}
 
 		ret = append(ret, prometheus.MustNewConstMetric(
-			prometheus.NewDesc("k8s_image_existence_exporter_"+strings.ToLower(controllerKind)+"_"+desc, "", nil, labels),
+			prometheus.NewDesc("k8s_image_availability_exporter_"+strings.ToLower(controllerKind)+"_"+desc, "", nil, labels),
 			prometheus.GaugeValue,
 			value,
 		))

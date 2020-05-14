@@ -1,4 +1,4 @@
-module github.com/flant/k8s-image-existence-exporter
+module github.com/flant/k8s-image-availability-exporter
 
 go 1.14
 

@@ -2,7 +2,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: image-existence-exporter
+  name: image-availability-exporter
 rules:
   - apiGroups:
       - ""
@@ -35,12 +35,12 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: image-existence-exporter
+  name: image-availability-exporter
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: image-existence-exporter
+  name: image-availability-exporter
 subjects:
   - kind: ServiceAccount
-    name: image-existence-exporter
+    name: image-availability-exporter
     namespace: kube-system

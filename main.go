@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/flant/k8s-image-existence-exporter/pkg/logging"
+	"github.com/flant/k8s-image-availability-exporter/pkg/logging"
 
-	"github.com/flant/k8s-image-existence-exporter/pkg/handlers"
+	"github.com/flant/k8s-image-availability-exporter/pkg/handlers"
 
 	"github.com/sirupsen/logrus"
 
@@ -17,7 +17,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/flant/k8s-image-existence-exporter/pkg/registry_checker"
+	"github.com/flant/k8s-image-availability-exporter/pkg/registry_checker"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -52,7 +52,7 @@ func main() {
 
 	liveTicksCounter := prometheus.NewCounter(
 		prometheus.CounterOpts{
-			Namespace: "k8s_image_existence_exporter",
+			Namespace: "k8s_image_availability_exporter",
 			Name:      "completed_rechecks_total",
 			Help:      "Number of image rechecks completed.",
 		},
