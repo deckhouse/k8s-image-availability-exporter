@@ -211,3 +211,9 @@ in the exporter's metrics.
 * `k8s_image_availability_exporter_xxx_authentication_failure` — non-zero indicates authentication error to container registry, verify imagePullSecrets.
 * `k8s_image_availability_exporter_xxx_authorization_failure` — non-zero indicates authorization error to container registry, verify imagePullSecrets.
 * `k8s_image_availability_exporter_xxx_unknown_error` — non-zero indicates an error that failed to be classified, consult exporter's logs for additional information.
+
+## Compatibility
+
+`k8s-image-existence-exporter` is compatible with Kubernetes 1.15+ and Docker Registry V2 compliant container registries.
+
+Since the exporter operates as a Deployment, it *does not* support container registries, access to whom are authorized on a node.
