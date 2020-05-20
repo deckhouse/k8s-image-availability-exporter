@@ -185,7 +185,7 @@ func (rc *RegistryChecker) reconcileUpdate(a, b interface{}) {
 
 func (rc *RegistryChecker) Check() {
 	// TODO: tweak const
-	oldImages := rc.imageStore.PopOldestImages(rc.imageStore.Length() / 40)
+	oldImages := rc.imageStore.PopOldestImages(rc.imageStore.Length()) // / 40)
 
 	var processingGroup sync.WaitGroup
 	for _, image := range oldImages {
@@ -255,9 +255,9 @@ func checkImageAvailability(log *logrus.Entry, imageName string, kc *keychain) (
 			errors.As(imgErr, &schemaErr)
 			if schemaErr != nil {
 				availMode = store.Available
+			} else {
+				availMode = store.UnknownError
 			}
-
-			availMode = store.UnknownError
 		}
 
 		if availMode == store.UnknownError {
