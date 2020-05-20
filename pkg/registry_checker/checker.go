@@ -265,7 +265,7 @@ func checkImageAvailability(log *logrus.Entry, imageName string, kc *keychain) (
 			}
 		}
 
-		if availMode == store.UnknownError {
+		if availMode != store.Available {
 			return false, nil
 		}
 
