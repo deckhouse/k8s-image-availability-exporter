@@ -232,9 +232,14 @@ func checkImageAvailability(log *logrus.Entry, imageName string, kc *keychain) (
 			_, imgErr = remote.Image(ref)
 		}
 
+		availMode = store.Available
 		if imgErr != nil {
 			var transpErr *transport.Error
 			errors.As(imgErr, &transpErr)
+
+			var schemaErr *remote.ErrSchema1
+			errors.As(imgErr, &schemaErr)
+
 			if transpErr != nil {
 				for _, transportError := range transpErr.Errors {
 					if transportError.Code == transport.ManifestUnknownErrorCode {
@@ -249,11 +254,11 @@ func checkImageAvailability(log *logrus.Entry, imageName string, kc *keychain) (
 						availMode = store.AuthzFailure
 					}
 				}
-			}
 
-			var schemaErr *remote.ErrSchema1
-			errors.As(imgErr, &schemaErr)
-			if schemaErr != nil {
+				if availMode == store.Available {
+					availMode = store.UnknownError
+				}
+			} else if schemaErr != nil {
 				availMode = store.Available
 			} else {
 				availMode = store.UnknownError
