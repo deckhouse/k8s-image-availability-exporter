@@ -185,7 +185,7 @@ func (rc *RegistryChecker) reconcileUpdate(a, b interface{}) {
 
 func (rc *RegistryChecker) Check() {
 	// TODO: tweak const
-	oldImages := rc.imageStore.PopOldestImages(rc.imageStore.Length()) // / 40)
+	oldImages := rc.imageStore.PopOldestImages(rc.imageStore.Length() / 40)
 
 	var processingGroup sync.WaitGroup
 	for _, image := range oldImages {
