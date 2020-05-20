@@ -20,7 +20,6 @@ const (
 	RegistryUnavailable
 	AuthnFailure
 	AuthzFailure
-	V1Schema
 	UnknownError
 )
 
@@ -32,7 +31,6 @@ func AvailabilityModeDescMap() map[AvailabilityMode]string {
 		RegistryUnavailable: "registry_unavailable",
 		AuthnFailure:        "authentication_failure",
 		AuthzFailure:        "authorization_failure",
-		V1Schema:            "registry_v1_api_not_supported",
 		UnknownError:        "unknown_error",
 	}
 }

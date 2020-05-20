@@ -2,6 +2,7 @@ package registry_checker
 
 import (
 	"errors"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"sync"
 	"time"
 
@@ -208,7 +209,7 @@ func (rc *RegistryChecker) Check() {
 	processingGroup.Wait()
 }
 
-func checkImageAvailability(log *logrus.Entry, imageName string, kc *keychain) store.AvailabilityMode {
+func checkImageAvailability(log *logrus.Entry, imageName string, kc *keychain) (availMode store.AvailabilityMode) {
 	ref, err := name.ParseReference(imageName)
 	var parseErr *name.ErrBadName
 	if errors.As(err, &parseErr) {
@@ -219,44 +220,56 @@ func checkImageAvailability(log *logrus.Entry, imageName string, kc *keychain) s
 		return store.UnknownError
 	}
 
-	if kc != nil {
-		_, err = remote.Image(ref, remote.WithAuthFromKeychain(kc))
-	} else {
-		_, err = remote.Image(ref)
-	}
+	_ = wait.ExponentialBackoff(wait.Backoff{
+		Duration: time.Second,
+		Factor:   2,
+		Steps:    2,
+	}, func() (bool, error) {
+		var imgErr error
+		if kc != nil {
+			_, imgErr = remote.Image(ref, remote.WithAuthFromKeychain(kc))
+		} else {
+			_, imgErr = remote.Image(ref)
+		}
 
-	if err != nil {
-		var transpErr *transport.Error
-		errors.As(err, &transpErr)
-		if transpErr != nil {
-			for _, transportError := range transpErr.Errors {
-				if transportError.Code == transport.ManifestUnknownErrorCode {
-					log.WithField("availability_mode", store.Absent.String()).Error(err)
-					return store.Absent
-				}
+		if imgErr != nil {
+			var transpErr *transport.Error
+			errors.As(imgErr, &transpErr)
+			if transpErr != nil {
+				for _, transportError := range transpErr.Errors {
+					if transportError.Code == transport.ManifestUnknownErrorCode {
+						availMode = store.Absent
+					}
 
-				if transportError.Code == transport.UnauthorizedErrorCode {
-					log.WithField("availability_mode", store.AuthnFailure.String()).Error(err)
-					return store.AuthnFailure
-				}
+					if transportError.Code == transport.UnauthorizedErrorCode {
+						availMode = store.AuthnFailure
+					}
 
-				if transportError.Code == transport.DeniedErrorCode {
-					log.WithField("availability_mode", store.AuthzFailure.String()).Error(err)
-					return store.AuthzFailure
+					if transportError.Code == transport.DeniedErrorCode {
+						availMode = store.AuthzFailure
+					}
 				}
 			}
+
+			var schemaErr *remote.ErrSchema1
+			errors.As(imgErr, &schemaErr)
+			if schemaErr != nil {
+				availMode = store.Available
+			}
+
+			availMode = store.UnknownError
 		}
 
-		var schemaErr *remote.ErrSchema1
-		errors.As(err, &schemaErr)
-		if schemaErr != nil {
-			log.WithField("availability_mode", store.V1Schema.String()).Error(err)
-			return store.V1Schema
+		if availMode == store.UnknownError {
+			return false, nil
 		}
 
-		log.WithField("availability_mode", store.UnknownError.String()).Error(err)
-		return store.UnknownError
+		return true, nil
+	})
+
+	if availMode != store.Available {
+		log.WithField("availability_mode", availMode.String()).Error(err)
 	}
 
-	return store.Available
+	return
 }

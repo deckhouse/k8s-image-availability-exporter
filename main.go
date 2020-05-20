@@ -27,7 +27,7 @@ import (
 )
 
 func main() {
-	imageCheckInterval := flag.Duration("check-interval", 15*time.Second, "image re-check interval")
+	imageCheckInterval := flag.Duration("check-interval", time.Minute, "image re-check interval")
 	ignoredImagesStr := flag.String("ignored-images", "", "comma-separated image names to ignore")
 	bindAddr := flag.String("bind-address", ":8080", "address:port to bind /metrics endpoint to")
 	flag.Parse()
@@ -78,5 +78,5 @@ func main() {
 	wait.Until(func() {
 		registryChecker.Check()
 		liveTicksCounter.Inc()
-	}, *imageCheckInterval, stopCh) // FIXME
+	}, *imageCheckInterval, stopCh)
 }
