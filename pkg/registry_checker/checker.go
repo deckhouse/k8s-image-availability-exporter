@@ -220,12 +220,12 @@ func checkImageAvailability(log *logrus.Entry, imageName string, kc *keychain) (
 		return store.UnknownError
 	}
 
+	var imgErr error
 	_ = wait.ExponentialBackoff(wait.Backoff{
 		Duration: time.Second,
 		Factor:   2,
 		Steps:    2,
 	}, func() (bool, error) {
-		var imgErr error
 		if kc != nil {
 			_, imgErr = remote.Image(ref, remote.WithAuthFromKeychain(kc))
 		} else {
@@ -273,7 +273,7 @@ func checkImageAvailability(log *logrus.Entry, imageName string, kc *keychain) (
 	})
 
 	if availMode != store.Available {
-		log.WithField("availability_mode", availMode.String()).Error(err)
+		log.WithField("availability_mode", availMode.String()).Error(imgErr)
 	}
 
 	return
