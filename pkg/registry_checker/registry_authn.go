@@ -19,7 +19,7 @@ func (lp lazyProvider) Authorization() (*authn.AuthConfig, error) {
 	if !found || len(creds) < 1 {
 		return nil, fmt.Errorf("keychain returned no credentials for %q", lp.image)
 	}
-	authConfig := creds[0]
+	authConfig := creds[lp.kc.index]
 	return &authn.AuthConfig{
 		Username:      authConfig.Username,
 		Password:      authConfig.Password,
@@ -31,6 +31,8 @@ func (lp lazyProvider) Authorization() (*authn.AuthConfig, error) {
 
 type keychain struct {
 	keyring credentialprovider.DockerKeyring
+	size    int
+	index   int
 }
 
 // Resolve implements authn.Keychain

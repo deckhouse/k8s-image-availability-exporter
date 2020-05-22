@@ -232,6 +232,7 @@ func (ci ControllerIndexers) GetKeychainForImage(image string) *keychain {
 
 	kc := &keychain{
 		keyring: kr,
+		size:    len(dereferencedPullSecrets),
 	}
 
 	return kc

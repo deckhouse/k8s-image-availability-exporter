@@ -8,8 +8,6 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
-
 	"github.com/sirupsen/logrus"
 
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
@@ -227,49 +225,38 @@ func checkImageAvailability(log *logrus.Entry, imageName string, kc *keychain) (
 		Steps:    2,
 	}, func() (bool, error) {
 		if kc != nil {
-			_, imgErr = remote.Image(ref, remote.WithAuthFromKeychain(kc))
+			for i := 0; i < kc.size; i++ {
+				indexedKeychain := *kc
+				indexedKeychain.index = i
+
+				_, imgErr = remote.Image(ref, remote.WithAuthFromKeychain(&indexedKeychain))
+
+				if imgErr != nil {
+					continue
+				}
+
+				if imgErr == nil || (!IsAuthnFail(imgErr) && !IsAuthzFail(imgErr)) {
+					break
+				}
+			}
 		} else {
 			_, imgErr = remote.Image(ref)
 		}
 
 		availMode = store.Available
-		if imgErr != nil {
-			var transpErr *transport.Error
-			errors.As(imgErr, &transpErr)
-
-			var schemaErr *remote.ErrSchema1
-			errors.As(imgErr, &schemaErr)
-
-			if transpErr != nil {
-				for _, transportError := range transpErr.Errors {
-					if transportError.Code == transport.ManifestUnknownErrorCode {
-						availMode = store.Absent
-					}
-
-					if transportError.Code == transport.UnauthorizedErrorCode {
-						availMode = store.AuthnFailure
-					}
-
-					if transportError.Code == transport.DeniedErrorCode {
-						availMode = store.AuthzFailure
-					}
-				}
-
-				if availMode == store.Available {
-					availMode = store.UnknownError
-				}
-			} else if schemaErr != nil {
-				availMode = store.Available
-			} else {
-				availMode = store.UnknownError
-			}
+		if IsAbsent(imgErr) {
+			availMode = store.Absent
+		} else if IsAuthnFail(imgErr) {
+			availMode = store.AuthnFailure
+		} else if IsAuthzFail(imgErr) {
+			availMode = store.AuthzFailure
+		} else if IsOldRegistry(imgErr) {
+			availMode = store.Available
+		} else if imgErr != nil {
+			availMode = store.UnknownError
 		}
 
-		if availMode != store.Available {
-			return false, nil
-		}
-
-		return true, nil
+		return availMode == store.Available, nil
 	})
 
 	if availMode != store.Available {
