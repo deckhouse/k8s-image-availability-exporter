@@ -191,6 +191,7 @@ spec:
 * `--check-interval` — interval for checking absent images. In Go `time` format.
   * Default: `5m`
 * `--ignored-images` — comma-separated list of images to ignore while checking absent images.
+* `--skip-registry-cert-verification` — whether to skip registries' certificate verification.
 
 ## Metrics
 

@@ -1,8 +1,10 @@
 package registry_checker
 
 import (
+	"crypto/tls"
 	"errors"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"net/http"
 	"sync"
 	"time"
 
@@ -43,13 +45,21 @@ type RegistryChecker struct {
 	ignoredImages map[string]struct{}
 
 	imageExistsVectors []prometheus.Metric
+
+	registryTransport *http.Transport
 }
 
 func NewRegistryChecker(
 	kubeClient *kubernetes.Clientset,
+	skipVerify bool,
 	ignoredImages []string,
 ) *RegistryChecker {
 	informerFactory := informers.NewSharedInformerFactory(kubeClient, time.Hour)
+
+	customTransport := http.DefaultTransport.(*http.Transport).Clone()
+	if skipVerify {
+		customTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
 
 	rc := &RegistryChecker{
 		imageStore: store.NewImageStore(),
@@ -61,6 +71,8 @@ func NewRegistryChecker(
 		secretsInformer:       informerFactory.Core().V1().Secrets(),
 
 		ignoredImages: map[string]struct{}{},
+
+		registryTransport: customTransport,
 	}
 
 	for _, image := range ignoredImages {
@@ -195,7 +207,7 @@ func (rc *RegistryChecker) Check() {
 			defer processingGroup.Done()
 
 			log := logrus.WithField("image_name", imageName)
-			availMode := checkImageAvailability(log, imageName, kc)
+			availMode := rc.checkImageAvailability(log, imageName, kc)
 
 			rc.imageStore.AddOrUpdateImage(imageName, time.Now(), availMode)
 		}(image, keyChain)
@@ -207,7 +219,7 @@ func (rc *RegistryChecker) Check() {
 	processingGroup.Wait()
 }
 
-func checkImageAvailability(log *logrus.Entry, imageName string, kc *keychain) (availMode store.AvailabilityMode) {
+func (rc *RegistryChecker) checkImageAvailability(log *logrus.Entry, imageName string, kc *keychain) (availMode store.AvailabilityMode) {
 	ref, err := name.ParseReference(imageName)
 	var parseErr *name.ErrBadName
 	if errors.As(err, &parseErr) {
@@ -229,7 +241,7 @@ func checkImageAvailability(log *logrus.Entry, imageName string, kc *keychain) (
 				indexedKeychain := *kc
 				indexedKeychain.index = i
 
-				_, imgErr = remote.Image(ref, remote.WithAuthFromKeychain(&indexedKeychain))
+				_, imgErr = remote.Image(ref, remote.WithAuthFromKeychain(&indexedKeychain), remote.WithTransport(rc.registryTransport))
 
 				if imgErr != nil {
 					continue
@@ -240,7 +252,7 @@ func checkImageAvailability(log *logrus.Entry, imageName string, kc *keychain) (
 				}
 			}
 		} else {
-			_, imgErr = remote.Image(ref)
+			_, imgErr = remote.Image(ref, remote.WithTransport(rc.registryTransport))
 		}
 
 		availMode = store.Available

@@ -30,6 +30,7 @@ func main() {
 	imageCheckInterval := flag.Duration("check-interval", time.Minute, "image re-check interval")
 	ignoredImagesStr := flag.String("ignored-images", "", "comma-separated image names to ignore")
 	bindAddr := flag.String("bind-address", ":8080", "address:port to bind /metrics endpoint to")
+	insecureSkipVerify := flag.Bool("skip-registry-cert-verification", false, "whether to skip registries' certificate verification")
 	flag.Parse()
 
 	logrus.SetFormatter(&logrus.TextFormatter{
@@ -61,6 +62,7 @@ func main() {
 
 	registryChecker := registry_checker.NewRegistryChecker(
 		kubeClient,
+		*insecureSkipVerify,
 		strings.Split(*ignoredImagesStr, ","),
 	)
 	prometheus.MustRegister(registryChecker)
