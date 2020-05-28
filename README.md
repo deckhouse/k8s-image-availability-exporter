@@ -11,7 +11,7 @@ After cloning this repo:
 
 ### Prometheus integration
  
-Here's how you can configure Prometheus or prometheus-operator to scrape metrics from `k8s-image-availability-operator`.
+Here's how you can configure Prometheus or prometheus-operator to scrape metrics from `k8s-image-availability-exporter`.
  
 #### Prometheus
 
@@ -55,7 +55,7 @@ spec:
 
 ### Alerting
 
-And alert on them.
+Here's how to alert based on these metrics:
 
 #### Prometheus
 
@@ -195,26 +195,26 @@ spec:
 
 ## Metrics
 
-The `xxx` is replaced with:
+The following metrics for Prometheus are provided:
+
+* `k8s_image_availability_exporter_<TYPE>_available` — non-zero indicates *successful* image check.
+* `k8s_image_availability_exporter_<TYPE>_bad_image_format` — non-zero indicates incorrect `image` field format.
+* `k8s_image_availability_exporter_<TYPE>_absent` — non-zero indicates an image's manifest absence from container registry.
+* `k8s_image_availability_exporter_<TYPE>_registry_unavailable` — non-zero indicates general registry unavailiability, perhaps, due to network outage.
+* `k8s_image_availability_exporter_deployment_registry_v1_api_not_supported` — non-zero indicates v1 Docker Registry API, these images are best ignored with `--ignored-images` cmdline parameter.
+* `k8s_image_availability_exporter_<TYPE>_authentication_failure` — non-zero indicates authentication error to container registry, verify imagePullSecrets.
+* `k8s_image_availability_exporter_<TYPE>_authorization_failure` — non-zero indicates authorization error to container registry, verify imagePullSecrets.
+* `k8s_image_availability_exporter_<TYPE>_unknown_error` — non-zero indicates an error that failed to be classified, consult exporter's logs for additional information.
+
+Each `<TYPE>` in the exporter's metrics name is replaced with the following values:
 
 * `deployment`
 * `statefulset`
 * `daemonset` 
 * `cronjob`
 
-in the exporter's metrics.
-
-* `k8s_image_availability_exporter_xxx_available` — non-zero indicates *successful* image check.
-* `k8s_image_availability_exporter_xxx_bad_image_format` — non-zero indicates incorrect `image` field format.
-* `k8s_image_availability_exporter_xxx_absent` — non-zero indicates an image's manifest absence from container registry.
-* `k8s_image_availability_exporter_xxx_registry_unavailable` — non-zero indicates general registry unavailiability, perhaps, due to network outage.
-* `k8s_image_availability_exporter_deployment_registry_v1_api_not_supported` — non-zero indicates v1 Docker Registry API, these images are best ignored with `--ignored-images` cmdline parameter.
-* `k8s_image_availability_exporter_xxx_authentication_failure` — non-zero indicates authentication error to container registry, verify imagePullSecrets.
-* `k8s_image_availability_exporter_xxx_authorization_failure` — non-zero indicates authorization error to container registry, verify imagePullSecrets.
-* `k8s_image_availability_exporter_xxx_unknown_error` — non-zero indicates an error that failed to be classified, consult exporter's logs for additional information.
-
 ## Compatibility
 
 `k8s-image-existence-exporter` is compatible with Kubernetes 1.15+ and Docker Registry V2 compliant container registries.
 
-Since the exporter operates as a Deployment, it *does not* support container registries, access to whom are authorized on a node.
+Since the exporter operates as a Deployment, it *does not* support container registries that should be accessed via authorization on a node.
