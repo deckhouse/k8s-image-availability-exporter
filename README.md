@@ -215,6 +215,6 @@ Each `<TYPE>` in the exporter's metrics name is replaced with the following valu
 
 ## Compatibility
 
-`k8s-image-existence-exporter` is compatible with Kubernetes 1.15+ and Docker Registry V2 compliant container registries.
+`k8s-image-availability-exporter` is compatible with Kubernetes 1.15+ and Docker Registry V2 compliant container registries.
 
 Since the exporter operates as a Deployment, it *does not* support container registries that should be accessed via authorization on a node.
