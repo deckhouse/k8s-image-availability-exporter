@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "k8s-image-availability-exporter.fullname" . }}
+  labels:
+    helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+    app.kubernetes.io/name: "{{ template "k8s-image-availability-exporter.fullname" . }}"
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+    app.kubernetes.io/component: monitoring
+spec:
+  replicas: {{ .Values.k8sImageAvailabilityExporter.replicas }}
+  selector:
+    matchLabels:
+      app: {{ template "k8s-image-availability-exporter.fullname" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "k8s-image-availability-exporter.fullname" . }}
+    spec:
+      containers:
+      - name: k8s-image-availability-exporter
+        args: ["--bind-address=:8080"]
+        ports:
+        - containerPort: 8080
+          name: http
+        image: {{ .Values.k8sImageAvailabilityExporter.image.repository }}:{{ .Values.k8sImageAvailabilityExporter.image.tag }}
+        imagePullPolicy: {{ .Values.k8sImageAvailabilityExporter.image.imagePullPolicy }}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+            scheme: HTTP
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+            scheme: HTTP
+        resources:
+        {{ if .Values.k8sImageAvailabilityExporter.resources }}
+{{ .Values.k8sImageAvailabilityExporter.resources | toYaml | indent 10}}
+        {{ end }}
+      serviceAccountName: {{ template "k8s-image-availability-exporter.fullname" . }}
