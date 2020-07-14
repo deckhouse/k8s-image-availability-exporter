@@ -61,8 +61,8 @@ spec:
         severity: critical
 {{- end }}
 
-{{- if .Values.prometheusRule.customGroups }}
-{{ .Values.prometheusRule.customGroups | toYaml | indent 2}}
+{{- if .Values.prometheusRule.additionalGroups }}
+{{ .Values.prometheusRule.additionalGroups | toYaml | indent 2}}
 {{- end }}
 
 {{- end }}
