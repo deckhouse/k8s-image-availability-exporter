@@ -3,6 +3,18 @@
 [![Docker images](https://img.shields.io/docker/automated/flant/k8s-image-availability-exporter)](https://hub.docker.com/r/flant/k8s-image-availability-exporter)
 [![Latest Docker image](https://img.shields.io/docker/v/flant/k8s-image-availability-exporter?sort=semver)](https://hub.docker.com/r/flant/k8s-image-availability-exporter)
 
+k8s-image-availability-exporter (or *k8s-iae* for short) is a Prometheus exporter that warns you proactively about images that are defined in Kubernetes objects (e.g., an `image` field in the Deployment) but are not available in the container registry (such as Docker Registry, etc.).
+
+Receiving alerts when container images related to running Kubernetes controllers are missing helps you to solve the problem before it manifests itself. For more details on the reasons behind k8s-iae and how it works, please read [this article](https://medium.com/flant-com/prometheus-exporter-to-check-kubernetes-images-availability-26c306c44c08).
+
+* [Deploying / Installing](#deploying) k8s-iae in your Kubernetes cluster
+  * [Prometheus integration](#prometheus-integration) to scrape metrics
+  * [Alerting](#alerting) based on k8s-iae metrics
+* [Configuration](#configuration)
+  * [CLI options](#command-line-options)
+* [Metrics](#metrics) for Prometheus provided by k8s-iae
+* [Compatibility](#compatibility)
+
 ## Deploying
 
 After cloning this repo:
@@ -215,6 +227,6 @@ Each `<TYPE>` in the exporter's metrics name is replaced with the following valu
 
 ## Compatibility
 
-`k8s-image-availability-exporter` is compatible with Kubernetes 1.15+ and Docker Registry V2 compliant container registries.
+k8s-image-availability-exporter is compatible with Kubernetes 1.15+ and Docker Registry V2 compliant container registries.
 
 Since the exporter operates as a Deployment, it *does not* support container registries that should be accessed via authorization on a node.
