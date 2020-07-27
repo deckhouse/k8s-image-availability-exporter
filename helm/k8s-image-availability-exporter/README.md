@@ -41,7 +41,7 @@ The following tables list the configurable parameters of the k8s-image-availabil
 | ----- | ----------- | ------ |
 | `k8sImageAvailabilityExporter.image.pullPolicy` | Image pull policy to use for the k8s-image-availability-exporter deployment | `IfNotPresent` |
 | `k8sImageAvailabilityExporter.image.repository` | Repository to use for the k8s-image-availability-exporter deployment | `flant/k8s-image-availability-exporter` |
-| `k8sImageAvailabilityExporter.image.tag` | Tag to use for the k8s-image-availability-exporter deployment | `v0.1.5` |
+| `k8sImageAvailabilityExporter.image.tag` | Tag to use for the k8s-image-availability-exporter deployment | `v0.1.13` |
 | `k8sImageAvailabilityExporter.replicas` | Number of instances to deploy for a k8s-image-availability-exporter deployment. | `1` |
 | `k8sImageAvailabilityExporter.resources` | Resource limits for k8s-image-availability-exporter | `{}` |
 | `serviceMonitor.enabled` | Create [Prometheus Operator](https://github.com/coreos/prometheus-operator) serviceMonitor resource | `false` |
