@@ -1,0 +1,15 @@
+{{- if .Values.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ template "k8s-image-availability-exporter.fullname" . }}
+  labels:
+    app: {{ template "k8s-image-availability-exporter.fullname" . }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ template "k8s-image-availability-exporter.fullname" . }}
+  endpoints:
+  - port: http
+    interval: {{ .Values.serviceMonitor.interval }}
+{{- end }}
