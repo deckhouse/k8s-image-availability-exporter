@@ -6,7 +6,7 @@ This chart bootstraps a [k8s-image-availability-exporter](https://github.com/fla
 
 ## Prerequisites
   - Kubernetes 1.12+
-  - Helm 3+
+  - Helm 2+
 
 ## Installing the Chart
 
