@@ -77,52 +77,52 @@ groups:
   rules:
   - alert: DeploymentImageUnavailable
     expr: |
-      max by (namespace, deployment, container, image) (
+      max by (exported_namespace, deployment, container, image) (
         k8s_image_availability_exporter_deployment_available == 0
       )
     annotations:
       description: >
         Check image's `{{ $labels.image }}` availability in container registry
-        in Namespace `{{ $labels.namespace }}`
+        in Namespace `{{ $labels.exported_namespace }}`
         in Deployment `{{ $labels.owner_name }}`
         in container `{{ $labels.container }}` in registry.
       summary: Image `{{ $labels.image }}` is unavailable in container registry.
 
   - alert: StatefulSetImageUnavailable
     expr: |
-      max by (namespace, statefulset, container, image) (
+      max by (exported_namespace, statefulset, container, image) (
         k8s_image_availability_exporter_statefulset_available == 0
       )
     annotations:
       description: >
         Check image's `{{ $labels.image }}` availability in container registry
-        in Namespace `{{ $labels.namespace }}`
+        in Namespace `{{ $labels.exported_namespace }}`
         in StatefulSet `{{ $labels.owner_name }}`
         in container `{{ $labels.container }}` in registry.
       summary: Image `{{ $labels.image }}` is unavailable in container registry.
 
   - alert: DaemonSetImageUnavailable
     expr: |
-      max by (namespace, daemonset, container, image) (
+      max by (exported_namespace, daemonset, container, image) (
         k8s_image_availability_exporter_daemonset_available == 0
       )
     annotations:
       description: >
         Check image's `{{ $labels.image }}` availability in container registry
-        in Namespace `{{ $labels.namespace }}`
+        in Namespace `{{ $labels.exported_namespace }}`
         in DaemonSet `{{ $labels.owner_name }}`
         in container `{{ $labels.container }}` in registry.
       summary: Image `{{ $labels.image }}` is unavailable in container registry.
 
   - alert: CronJobImageUnavailable
     expr: |
-      max by (namespace, cronjob, container, image) (
+      max by (exported_namespace, cronjob, container, image) (
         k8s_image_availability_exporter_cronjob_available == 0
       )
     annotations:
       description: >
         Check image's `{{ $labels.image }}` availability in container registry
-        in Namespace `{{ $labels.namespace }}`
+        in Namespace `{{ $labels.exported_namespace }}`
         in CronJob `{{ $labels.owner_name }}`
         in container `{{ $labels.container }}` in registry.
       summary: Image `{{ $labels.image }}` is unavailable in container registry.
@@ -143,52 +143,52 @@ spec:
 
     - alert: DeploymentImageUnavailable
       expr: |
-        max by (namespace, deployment, container, image) (
+        max by (exported_namespace, deployment, container, image) (
           k8s_image_availability_exporter_deployment_available == 0
         )
       annotations:
         description: >
           Check image's `{{ $labels.image }}` availability in container registry
-          in Namespace `{{ $labels.namespace }}`
+          in Namespace `{{ $labels.exported_namespace }}`
           in Deployment `{{ $labels.owner_name }}`
           in container `{{ $labels.container }}` in registry.
         summary: Image `{{ $labels.image }}` is unavailable.
     
     - alert: StatefulSetImageUnavailable
       expr: |
-        max by (namespace, statefulset, container, image) (
+        max by (exported_namespace, statefulset, container, image) (
           k8s_image_availability_exporter_statefulset_available == 0
         )
       annotations:
         description: >
           Check image's `{{ $labels.image }}` availability in container registry
-          in Namespace `{{ $labels.namespace }}`
+          in Namespace `{{ $labels.exported_namespace }}`
           in StatefulSet `{{ $labels.owner_name }}`
           in container `{{ $labels.container }}` in registry.
         summary: Image `{{ $labels.image }}` is unavailable in container registry.
     
     - alert: DaemonSetImageUnavailable
       expr: |
-        max by (namespace, daemonset, container, image) (
+        max by (exported_namespace, daemonset, container, image) (
           k8s_image_availability_exporter_daemonset_available == 0
         )
       annotations:
         description: >
           Check image's `{{ $labels.image }}` availability in container registry
-          in Namespace `{{ $labels.namespace }}`
+          in Namespace `{{ $labels.exported_namespace }}`
           in DaemonSet `{{ $labels.owner_name }}`
           in container `{{ $labels.container }}` in registry.
         summary: Image `{{ $labels.image }}` is unavailable in container registry.
     
     - alert: CronJobImageUnavailable
       expr: |
-        max by (namespace, cronjob, container, image) (
+        max by (exported_namespace, cronjob, container, image) (
           k8s_image_availability_exporter_cronjob_available == 0
         )
       annotations:
         description: >
           Check image's `{{ $labels.image }}` availability in container registry
-          in Namespace `{{ $labels.namespace }}`
+          in Namespace `{{ $labels.exported_namespace }}`
           in CronJob `{{ $labels.owner_name }}`
           in container `{{ $labels.container }}` in registry.
         summary: Image `{{ $labels.image }}` is unavailable in container registry.
