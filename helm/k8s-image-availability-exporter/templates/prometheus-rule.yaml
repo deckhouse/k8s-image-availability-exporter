@@ -26,11 +26,12 @@ spec:
         max by (namespace, statefulset, container, image) (
           k8s_image_availability_exporter_statefulset_available == 0
         )
-      message: >
-        Image {{`{{ $labels.image }}`}} from container {{`{{ $labels.container }}`}}
-        in statefulSet {{`{{ $labels.statefulset }}`}}
-        from namespace {{`{{ $labels.namespace }}`}}
-        is not available in docker registry.
+      annotations:
+        message: >
+          Image {{`{{ $labels.image }}`}} from container {{`{{ $labels.container }}`}}
+          in statefulSet {{`{{ $labels.statefulset }}`}}
+          from namespace {{`{{ $labels.namespace }}`}}
+          is not available in docker registry.
       labels:
         severity: critical
     - alert: DaemonSetImageUnavailable
