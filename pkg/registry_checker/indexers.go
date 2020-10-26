@@ -208,10 +208,6 @@ func (ci ControllerIndexers) GetKeychainForImage(image string) *keychain {
 		}
 	}
 
-	if len(refSet) == 0 {
-		return nil
-	}
-
 	var dereferencedPullSecrets []corev1.Secret
 	for ref := range refSet {
 		secretObj, exists, err := ci.secretIndexer.GetByKey(ref)
@@ -223,6 +219,10 @@ func (ci ControllerIndexers) GetKeychainForImage(image string) *keychain {
 		}
 		secretPtr := secretObj.(*corev1.Secret)
 		dereferencedPullSecrets = append(dereferencedPullSecrets, *secretPtr)
+	}
+
+	if len(dereferencedPullSecrets) == 0 {
+		return nil
 	}
 
 	kr, err := credentialprovidersecrets.MakeDockerKeyring(dereferencedPullSecrets, credentialprovider.NewDockerKeyring())
