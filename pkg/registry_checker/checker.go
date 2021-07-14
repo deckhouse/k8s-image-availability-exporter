@@ -53,8 +53,12 @@ func NewRegistryChecker(
 	kubeClient *kubernetes.Clientset,
 	skipVerify bool,
 	ignoredImages []string,
+	specificNamespace string,
 ) *RegistryChecker {
 	informerFactory := informers.NewSharedInformerFactory(kubeClient, time.Hour)
+	if specificNamespace != "" {
+		informerFactory = informers.NewSharedInformerFactoryWithOptions(kubeClient, time.Hour, informers.WithNamespace(specificNamespace))
+	}
 
 	customTransport := http.DefaultTransport.(*http.Transport).Clone()
 	if skipVerify {
