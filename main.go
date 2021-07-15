@@ -31,6 +31,7 @@ func main() {
 	ignoredImagesStr := flag.String("ignored-images", "", "comma-separated image names to ignore")
 	bindAddr := flag.String("bind-address", ":8080", "address:port to bind /metrics endpoint to")
 	insecureSkipVerify := flag.Bool("skip-registry-cert-verification", false, "whether to skip registries' certificate verification")
+	specificNamespace := flag.String("namespace", "", "inspect specific namespace instead of whole k8s cluster")
 	flag.Parse()
 
 	logrus.SetFormatter(&logrus.TextFormatter{
@@ -64,6 +65,7 @@ func main() {
 		kubeClient,
 		*insecureSkipVerify,
 		strings.Split(*ignoredImagesStr, ","),
+		*specificNamespace,
 	)
 	prometheus.MustRegister(registryChecker)
 
