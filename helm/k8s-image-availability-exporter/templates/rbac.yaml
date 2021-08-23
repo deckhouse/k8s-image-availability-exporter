@@ -13,6 +13,12 @@ rules:
       - watch
       - get
   - apiGroups:
+      - ""
+    resources:
+      - pods
+    verbs:
+      - list
+  - apiGroups:
       - extensions
       - apps
     resources:
