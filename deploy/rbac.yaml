@@ -15,9 +15,9 @@ rules:
   - apiGroups:
       - ""
     resources:
-      - pods
+      - serviceaccounts
     verbs:
-      - list
+      - get
   - apiGroups:
       - extensions
       - apps

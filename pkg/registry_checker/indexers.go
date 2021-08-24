@@ -91,6 +91,14 @@ func extractPullSecretRefsFromPodSpec(namespace string, spec corev1.PodSpec) (re
 	return
 }
 
+func extractPullSecretRefsFromServiceAccount(namespace string, spec corev1.ServiceAccount) (ret []string) {
+	for _, ref := range spec.ImagePullSecrets {
+		ret = append(ret, namespace+"/"+ref.Name)
+	}
+
+	return
+}
+
 func ExtractImages(obj interface{}) ([]string, error) {
 	switch typedObj := obj.(type) {
 	case *appsv1.Deployment:
@@ -125,45 +133,30 @@ func ExtractPullSecretRefs(kubeClient *kubernetes.Clientset, obj interface{}) (r
 	var (
 		namespace string
 		podSpec   corev1.PodSpec
-		selector  *metav1.LabelSelector
 	)
 
 	switch typedObj := obj.(type) {
 	case *appsv1.Deployment:
 		namespace = typedObj.Namespace
 		podSpec = typedObj.Spec.Template.Spec
-		selector = typedObj.Spec.Selector
 	case *appsv1.StatefulSet:
 		namespace = typedObj.Namespace
 		podSpec = typedObj.Spec.Template.Spec
-		selector = typedObj.Spec.Selector
 	case *appsv1.DaemonSet:
 		namespace = typedObj.Namespace
 		podSpec = typedObj.Spec.Template.Spec
-		selector = typedObj.Spec.Selector
 	case *batchv1beta.CronJob:
 		namespace = typedObj.Namespace
 		podSpec = typedObj.Spec.JobTemplate.Spec.Template.Spec
-		selector = typedObj.Spec.JobTemplate.Spec.Selector
 	default:
 		panic(fmt.Errorf("%q not of types *appsv1.Deployment, *appsv1.StatefulSet, *appsv1.DaemonSet, *batchv1beta.CronJob", reflect.TypeOf(typedObj)))
 	}
 
 	pullSecretRefs := extractPullSecretRefsFromPodSpec(namespace, podSpec)
-	// If no ImagePullSecrets are found in the controller try to find them in Pods.
-	if len(pullSecretRefs) == 0 {
-		labelSelector, err := metav1.LabelSelectorAsSelector(selector)
+	if len(pullSecretRefs) == 0 && len(podSpec.ServiceAccountName) > 0 {
+		serviceAccount, err := kubeClient.CoreV1().ServiceAccounts(namespace).Get(podSpec.ServiceAccountName, metav1.GetOptions{})
 		if err == nil {
-			listOptions := metav1.ListOptions{LabelSelector: labelSelector.String()}
-
-			pods, _ := kubeClient.CoreV1().Pods(namespace).List(listOptions)
-			for _, pod := range pods.Items {
-				podPullSecretRefs := extractPullSecretRefsFromPodSpec(namespace, pod.Spec)
-				if len(podPullSecretRefs) > 0 {
-					pullSecretRefs = append(pullSecretRefs, podPullSecretRefs...)
-					break
-				}
-			}
+			pullSecretRefs = append(pullSecretRefs, extractPullSecretRefsFromServiceAccount(namespace, *serviceAccount)...)
 		}
 	}
 	ret = append(ret, pullSecretRefs...)
