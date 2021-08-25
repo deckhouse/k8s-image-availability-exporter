@@ -2,6 +2,7 @@ package registry_checker
 
 import (
 	"fmt"
+	"k8s.io/client-go/kubernetes"
 	"reflect"
 
 	"github.com/flant/k8s-image-availability-exporter/pkg/store"
@@ -90,6 +91,14 @@ func extractPullSecretRefsFromPodSpec(namespace string, spec corev1.PodSpec) (re
 	return
 }
 
+func extractPullSecretRefsFromServiceAccount(namespace string, spec corev1.ServiceAccount) (ret []string) {
+	for _, ref := range spec.ImagePullSecrets {
+		ret = append(ret, namespace+"/"+ref.Name)
+	}
+
+	return
+}
+
 func ExtractImages(obj interface{}) ([]string, error) {
 	switch typedObj := obj.(type) {
 	case *appsv1.Deployment:
@@ -120,19 +129,37 @@ func ExtractContainerInfos(image string, obj interface{}) []store.ContainerInfo 
 	}
 }
 
-func ExtractPullSecretRefs(obj interface{}) (ret []string) {
+func ExtractPullSecretRefs(kubeClient *kubernetes.Clientset, obj interface{}) (ret []string) {
+	var (
+		namespace string
+		podSpec   corev1.PodSpec
+	)
+
 	switch typedObj := obj.(type) {
 	case *appsv1.Deployment:
-		ret = append(ret, extractPullSecretRefsFromPodSpec(typedObj.Namespace, typedObj.Spec.Template.Spec)...)
+		namespace = typedObj.Namespace
+		podSpec = typedObj.Spec.Template.Spec
 	case *appsv1.StatefulSet:
-		ret = append(ret, extractPullSecretRefsFromPodSpec(typedObj.Namespace, typedObj.Spec.Template.Spec)...)
+		namespace = typedObj.Namespace
+		podSpec = typedObj.Spec.Template.Spec
 	case *appsv1.DaemonSet:
-		ret = append(ret, extractPullSecretRefsFromPodSpec(typedObj.Namespace, typedObj.Spec.Template.Spec)...)
+		namespace = typedObj.Namespace
+		podSpec = typedObj.Spec.Template.Spec
 	case *batchv1beta.CronJob:
-		ret = append(ret, extractPullSecretRefsFromPodSpec(typedObj.Namespace, typedObj.Spec.JobTemplate.Spec.Template.Spec)...)
+		namespace = typedObj.Namespace
+		podSpec = typedObj.Spec.JobTemplate.Spec.Template.Spec
 	default:
 		panic(fmt.Errorf("%q not of types *appsv1.Deployment, *appsv1.StatefulSet, *appsv1.DaemonSet, *batchv1beta.CronJob", reflect.TypeOf(typedObj)))
 	}
+
+	pullSecretRefs := extractPullSecretRefsFromPodSpec(namespace, podSpec)
+	if len(pullSecretRefs) == 0 && len(podSpec.ServiceAccountName) > 0 {
+		serviceAccount, err := kubeClient.CoreV1().ServiceAccounts(namespace).Get(podSpec.ServiceAccountName, metav1.GetOptions{})
+		if err == nil {
+			pullSecretRefs = append(pullSecretRefs, extractPullSecretRefsFromServiceAccount(namespace, *serviceAccount)...)
+		}
+	}
+	ret = append(ret, pullSecretRefs...)
 
 	return
 }
@@ -197,12 +224,12 @@ func (ci ControllerIndexers) GetContainerInfosForImage(image string) (ret []stor
 	return
 }
 
-func (ci ControllerIndexers) GetKeychainForImage(image string) *keychain {
+func (ci ControllerIndexers) GetKeychainForImage(kubeClient *kubernetes.Clientset, image string) *keychain {
 	objs := ci.GetObjectsByIndex(image)
 
 	var refSet = map[string]struct{}{}
 	for _, obj := range objs {
-		pullSecretRefs := ExtractPullSecretRefs(obj)
+		pullSecretRefs := ExtractPullSecretRefs(kubeClient, obj)
 		for _, ref := range pullSecretRefs {
 			refSet[ref] = struct{}{}
 		}

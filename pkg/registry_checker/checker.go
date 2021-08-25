@@ -3,6 +3,7 @@ package registry_checker
 import (
 	"crypto/tls"
 	"errors"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"net/http"
 	"sync"
@@ -34,11 +35,11 @@ type RegistryChecker struct {
 
 	imageStore *store.ImageStore
 
-	deploymentsInformer   appsv1informers.DeploymentInformer
-	statefulSetssInformer appsv1informers.StatefulSetInformer
-	daemonSetsInformer    appsv1informers.DaemonSetInformer
-	cronJobsInformer      v1beta1.CronJobInformer
-	secretsInformer       corev1informers.SecretInformer
+	deploymentsInformer  appsv1informers.DeploymentInformer
+	statefulSetsInformer appsv1informers.StatefulSetInformer
+	daemonSetsInformer   appsv1informers.DaemonSetInformer
+	cronJobsInformer     v1beta1.CronJobInformer
+	secretsInformer      corev1informers.SecretInformer
 
 	controllerIndexers ControllerIndexers
 
@@ -47,6 +48,8 @@ type RegistryChecker struct {
 	imageExistsVectors []prometheus.Metric
 
 	registryTransport *http.Transport
+
+	kubeClient *kubernetes.Clientset
 }
 
 func NewRegistryChecker(
@@ -68,15 +71,17 @@ func NewRegistryChecker(
 	rc := &RegistryChecker{
 		imageStore: store.NewImageStore(),
 
-		deploymentsInformer:   informerFactory.Apps().V1().Deployments(),
-		statefulSetssInformer: informerFactory.Apps().V1().StatefulSets(),
-		daemonSetsInformer:    informerFactory.Apps().V1().DaemonSets(),
-		cronJobsInformer:      informerFactory.Batch().V1beta1().CronJobs(),
-		secretsInformer:       informerFactory.Core().V1().Secrets(),
+		deploymentsInformer:  informerFactory.Apps().V1().Deployments(),
+		statefulSetsInformer: informerFactory.Apps().V1().StatefulSets(),
+		daemonSetsInformer:   informerFactory.Apps().V1().DaemonSets(),
+		cronJobsInformer:     informerFactory.Batch().V1beta1().CronJobs(),
+		secretsInformer:      informerFactory.Core().V1().Secrets(),
 
 		ignoredImages: map[string]struct{}{},
 
 		registryTransport: customTransport,
+
+		kubeClient: kubeClient,
 	}
 
 	for _, image := range ignoredImages {
@@ -105,7 +110,7 @@ func (rc *RegistryChecker) Run(stopCh <-chan struct{}) {
 	rc.controllerIndexers.deploymentIndexer = rc.deploymentsInformer.Informer().GetIndexer()
 	go rc.deploymentsInformer.Informer().Run(stopCh)
 
-	rc.statefulSetssInformer.Informer().AddEventHandlerWithResyncPeriod(cache.ResourceEventHandlerFuncs{
+	rc.statefulSetsInformer.Informer().AddEventHandlerWithResyncPeriod(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			rc.reconcile(obj)
 		},
@@ -116,12 +121,12 @@ func (rc *RegistryChecker) Run(stopCh <-chan struct{}) {
 			rc.reconcile(obj)
 		},
 	}, resyncPeriod)
-	err = rc.statefulSetssInformer.Informer().AddIndexers(statefulSetIndexers)
+	err = rc.statefulSetsInformer.Informer().AddIndexers(statefulSetIndexers)
 	if err != nil {
 		panic(err)
 	}
-	rc.controllerIndexers.statefulSetIndexer = rc.statefulSetssInformer.Informer().GetIndexer()
-	go rc.statefulSetssInformer.Informer().Run(stopCh)
+	rc.controllerIndexers.statefulSetIndexer = rc.statefulSetsInformer.Informer().GetIndexer()
+	go rc.statefulSetsInformer.Informer().Run(stopCh)
 
 	rc.daemonSetsInformer.Informer().AddEventHandlerWithResyncPeriod(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
@@ -163,7 +168,7 @@ func (rc *RegistryChecker) Run(stopCh <-chan struct{}) {
 	go rc.secretsInformer.Informer().Run(stopCh)
 
 	logrus.Info("Waiting for cache sync")
-	cache.WaitForCacheSync(stopCh, rc.deploymentsInformer.Informer().HasSynced, rc.statefulSetssInformer.Informer().HasSynced,
+	cache.WaitForCacheSync(stopCh, rc.deploymentsInformer.Informer().HasSynced, rc.statefulSetsInformer.Informer().HasSynced,
 		rc.daemonSetsInformer.Informer().HasSynced, rc.cronJobsInformer.Informer().HasSynced, rc.secretsInformer.Informer().HasSynced)
 	logrus.Info("Caches populated successfully")
 }
@@ -180,7 +185,24 @@ func (rc *RegistryChecker) reconcile(obj interface{}) {
 			continue
 		}
 
-		if !rc.controllerIndexers.CheckImageExistence(image) {
+		var skipObject bool
+
+		switch typedObj := obj.(type) {
+		case *appsv1.Deployment:
+			if typedObj.Status.Replicas == 0 {
+				skipObject = true
+			}
+		case *appsv1.StatefulSet:
+			if typedObj.Status.Replicas == 0 {
+				skipObject = true
+			}
+		case *appsv1.DaemonSet:
+			if typedObj.Status.CurrentNumberScheduled == 0 {
+				skipObject = true
+			}
+		}
+
+		if skipObject || !rc.controllerIndexers.CheckImageExistence(image) {
 			rc.imageStore.RemoveImage(image)
 			continue
 		}
@@ -190,7 +212,7 @@ func (rc *RegistryChecker) reconcile(obj interface{}) {
 }
 
 func (rc *RegistryChecker) reconcileUpdate(a, b interface{}) {
-	if !EqualObjects(a, b) {
+	if EqualObjects(a, b) {
 		return
 	}
 
@@ -203,7 +225,7 @@ func (rc *RegistryChecker) Check() {
 
 	var processingGroup sync.WaitGroup
 	for _, image := range oldImages {
-		keyChain := rc.controllerIndexers.GetKeychainForImage(image)
+		keyChain := rc.controllerIndexers.GetKeychainForImage(rc.kubeClient, image)
 
 		// TODO: backoff
 		processingGroup.Add(1)
