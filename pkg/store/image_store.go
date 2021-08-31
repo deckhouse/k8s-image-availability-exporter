@@ -160,7 +160,7 @@ func (imgStore *ImageStore) Length() int {
 
 func (imgStore *ImageStore) PopOldestImages(count int) (ret []string) {
 	imgStore.lock.Lock()
-	imgStore.lock.Unlock()
+	defer imgStore.lock.Unlock()
 
 	if count == 0 {
 		count = 1

@@ -22,8 +22,6 @@ import (
 	"github.com/flant/k8s-image-availability-exporter/pkg/store"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -31,8 +29,6 @@ const (
 )
 
 type RegistryChecker struct {
-	lock sync.RWMutex
-
 	imageStore *store.ImageStore
 
 	deploymentsInformer  appsv1informers.DeploymentInformer
@@ -44,8 +40,6 @@ type RegistryChecker struct {
 	controllerIndexers ControllerIndexers
 
 	ignoredImages map[string]struct{}
-
-	imageExistsVectors []prometheus.Metric
 
 	registryTransport *http.Transport
 

@@ -61,9 +61,5 @@ func IsOldRegistry(err error) bool {
 	var schemaErr *remote.ErrSchema1
 	errors.As(err, &schemaErr)
 
-	if schemaErr != nil {
-		return true
-	}
-
-	return false
+	return schemaErr != nil
 }
