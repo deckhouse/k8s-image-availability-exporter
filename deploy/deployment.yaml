@@ -27,7 +27,7 @@ spec:
           ports:
             - containerPort: 8080
               name: http-metrics
-          image: flant/k8s-image-availability-exporter:v0.1.14
+          image: registry.deckhouse.io/k8s-image-availability-exporter/k8s-image-availability-exporter:v0.1.17
           imagePullPolicy: IfNotPresent
           livenessProbe:
             httpGet:
