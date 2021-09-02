@@ -16,10 +16,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      # https://github.com/golangci/golangci-lint-action
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v2
         with:
           version: v1.42
+          args: --timeout=5m
   build:
     runs-on: ubuntu-latest
     permissions:
