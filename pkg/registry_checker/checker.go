@@ -261,7 +261,7 @@ func (rc *RegistryChecker) checkImageAvailability(log *logrus.Entry, imageName s
 				indexedKeychain := *kc
 				indexedKeychain.index = i
 
-				_, imgErr = remote.Image(ref, remote.WithAuthFromKeychain(&indexedKeychain), remote.WithTransport(rc.registryTransport))
+				_, imgErr = remote.Head(ref, remote.WithAuthFromKeychain(&indexedKeychain), remote.WithTransport(rc.registryTransport))
 
 				if imgErr != nil {
 					continue
@@ -272,7 +272,7 @@ func (rc *RegistryChecker) checkImageAvailability(log *logrus.Entry, imageName s
 				}
 			}
 		} else {
-			_, imgErr = remote.Image(ref, remote.WithTransport(rc.registryTransport))
+			_, imgErr = remote.Head(ref, remote.WithTransport(rc.registryTransport))
 		}
 
 		availMode = store.Available
