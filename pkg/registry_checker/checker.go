@@ -28,6 +28,10 @@ const (
 	resyncPeriod = time.Hour
 )
 
+type registryCheckerConfig struct {
+	defaultRegistry string
+}
+
 type RegistryChecker struct {
 	imageStore *store.ImageStore
 
@@ -44,6 +48,8 @@ type RegistryChecker struct {
 	registryTransport *http.Transport
 
 	kubeClient *kubernetes.Clientset
+
+	config registryCheckerConfig
 }
 
 func NewRegistryChecker(
@@ -51,7 +57,9 @@ func NewRegistryChecker(
 	skipVerify bool,
 	ignoredImages []string,
 	specificNamespace string,
+	defaultRegistry string,
 ) *RegistryChecker {
+
 	informerFactory := informers.NewSharedInformerFactory(kubeClient, time.Hour)
 	if specificNamespace != "" {
 		informerFactory = informers.NewSharedInformerFactoryWithOptions(kubeClient, time.Hour, informers.WithNamespace(specificNamespace))
@@ -76,6 +84,10 @@ func NewRegistryChecker(
 		registryTransport: customTransport,
 
 		kubeClient: kubeClient,
+
+		config: registryCheckerConfig{
+			defaultRegistry: defaultRegistry,
+		},
 	}
 
 	for _, image := range ignoredImages {
@@ -239,15 +251,33 @@ func (rc *RegistryChecker) Check() {
 	processingGroup.Wait()
 }
 
-func (rc *RegistryChecker) checkImageAvailability(log *logrus.Entry, imageName string, kc *keychain) (availMode store.AvailabilityMode) {
-	ref, err := name.ParseReference(imageName)
+func checkImageNameParseErr(log *logrus.Entry, err error) store.AvailabilityMode {
 	var parseErr *name.ErrBadName
 	if errors.As(err, &parseErr) {
 		log.WithField("availability_mode", store.BadImageName.String()).Error(err)
 		return store.BadImageName
-	} else if err != nil {
-		log.WithField("availability_mode", store.UnknownError.String()).Error(err)
-		return store.UnknownError
+	}
+
+	log.WithField("availability_mode", store.UnknownError.String()).Error(err)
+	return store.UnknownError
+}
+
+func (rc *RegistryChecker) checkImageAvailability(log *logrus.Entry, imageName string, kc *keychain) (availMode store.AvailabilityMode) {
+	var (
+		ref name.Reference
+		err error
+	)
+
+	ref, err = name.ParseReference(imageName)
+	if err != nil {
+		return checkImageNameParseErr(log, err)
+	}
+
+	if ref.Context().RegistryStr() == name.DefaultRegistry && rc.config.defaultRegistry != "" {
+		ref, err = name.ParseReference(path.Join(rc.config.defaultRegistry, imageName))
+		if err != nil {
+			return checkImageNameParseErr(log, err)
+		}
 	}
 
 	var imgErr error
