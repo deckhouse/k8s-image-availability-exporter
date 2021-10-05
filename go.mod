@@ -3,10 +3,11 @@ module github.com/flant/k8s-image-availability-exporter
 go 1.16
 
 require (
-	github.com/emirpasic/gods v1.12.0
+	github.com/gammazero/deque v0.1.0
 	github.com/google/go-containerregistry v0.6.0
 	github.com/prometheus/client_golang v1.11.0
 	github.com/sirupsen/logrus v1.8.1
+	github.com/stretchr/testify v1.7.0
 	github.com/vdemeester/k8s-pkg-credentialprovider v1.21.0
 	k8s.io/api v0.22.2
 	k8s.io/apimachinery v0.22.2

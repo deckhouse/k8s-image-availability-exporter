@@ -2,6 +2,7 @@ package registry_checker
 
 import (
 	"errors"
+
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 )

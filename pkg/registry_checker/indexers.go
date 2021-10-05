@@ -208,12 +208,6 @@ func (ci ControllerIndexers) GetKeysByIndex(image string) (ret []string) {
 	return
 }
 
-func (ci ControllerIndexers) CheckImageExistence(image string) bool {
-	keys := ci.GetKeysByIndex(image)
-
-	return len(keys) > 0
-}
-
 func (ci ControllerIndexers) GetContainerInfosForImage(image string) (ret []store.ContainerInfo) {
 	objs := ci.GetObjectsByIndex(image)
 

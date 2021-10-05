@@ -65,6 +65,7 @@ func main() {
 	prometheus.MustRegister(liveTicksCounter)
 
 	registryChecker := registry_checker.NewRegistryChecker(
+		stopCh,
 		kubeClient,
 		*insecureSkipVerify,
 		strings.Split(*ignoredImagesStr, ","),
@@ -72,8 +73,6 @@ func main() {
 		*defaultRegistry,
 	)
 	prometheus.MustRegister(registryChecker)
-
-	registryChecker.Run(stopCh)
 
 	http.Handle("/metrics", promhttp.Handler())
 	http.HandleFunc("/healthz", handlers.Healthz)
@@ -84,7 +83,7 @@ func main() {
 	handlers.UpdateHealth(true)
 
 	wait.Until(func() {
-		registryChecker.Check()
+		registryChecker.Tick()
 		liveTicksCounter.Inc()
 	}, *imageCheckInterval, stopCh)
 }
