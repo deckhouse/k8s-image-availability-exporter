@@ -2,22 +2,22 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/flant/k8s-image-availability-exporter/pkg/logging"
-
 	"github.com/flant/k8s-image-availability-exporter/pkg/handlers"
+	"github.com/flant/k8s-image-availability-exporter/pkg/logging"
+	"github.com/flant/k8s-image-availability-exporter/pkg/registry_checker"
+
+	"github.com/google/go-containerregistry/pkg/name"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/prometheus/client_golang/prometheus"
-
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-
-	"github.com/flant/k8s-image-availability-exporter/pkg/registry_checker"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -32,6 +32,9 @@ func main() {
 	bindAddr := flag.String("bind-address", ":8080", "address:port to bind /metrics endpoint to")
 	insecureSkipVerify := flag.Bool("skip-registry-cert-verification", false, "whether to skip registries' certificate verification")
 	specificNamespace := flag.String("namespace", "", "inspect specific namespace instead of whole k8s cluster")
+	defaultRegistry := flag.String("default-registry", "",
+		fmt.Sprintf("default registry to use in absence of a fully qualified image name, defaults to %q", name.DefaultRegistry))
+
 	flag.Parse()
 
 	logrus.SetFormatter(&logrus.TextFormatter{
@@ -62,14 +65,14 @@ func main() {
 	prometheus.MustRegister(liveTicksCounter)
 
 	registryChecker := registry_checker.NewRegistryChecker(
+		stopCh,
 		kubeClient,
 		*insecureSkipVerify,
 		strings.Split(*ignoredImagesStr, ","),
 		*specificNamespace,
+		*defaultRegistry,
 	)
 	prometheus.MustRegister(registryChecker)
-
-	registryChecker.Run(stopCh)
 
 	http.Handle("/metrics", promhttp.Handler())
 	http.HandleFunc("/healthz", handlers.Healthz)
@@ -80,7 +83,7 @@ func main() {
 	handlers.UpdateHealth(true)
 
 	wait.Until(func() {
-		registryChecker.Check()
+		registryChecker.Tick()
 		liveTicksCounter.Inc()
 	}, *imageCheckInterval, stopCh)
 }

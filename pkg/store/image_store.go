@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gammazero/deque"
 	"github.com/prometheus/client_golang/prometheus"
-
-	"github.com/emirpasic/gods/trees/binaryheap"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 type AvailabilityMode int
@@ -23,20 +23,18 @@ const (
 	UnknownError
 )
 
-func AvailabilityModeDescMap() map[AvailabilityMode]string {
-	return map[AvailabilityMode]string{
-		Available:           "available",
-		Absent:              "absent",
-		BadImageName:        "bad_image_format",
-		RegistryUnavailable: "registry_unavailable",
-		AuthnFailure:        "authentication_failure",
-		AuthzFailure:        "authorization_failure",
-		UnknownError:        "unknown_error",
-	}
+var AvailabilityModeDescMap = map[AvailabilityMode]string{
+	Available:           "available",
+	Absent:              "absent",
+	BadImageName:        "bad_image_format",
+	RegistryUnavailable: "registry_unavailable",
+	AuthnFailure:        "authentication_failure",
+	AuthzFailure:        "authorization_failure",
+	UnknownError:        "unknown_error",
 }
 
 func (a AvailabilityMode) String() string {
-	return AvailabilityModeDescMap()[a]
+	return AvailabilityModeDescMap[a]
 }
 
 type ContainerInfo struct {
@@ -47,155 +45,167 @@ type ContainerInfo struct {
 }
 
 type ImageInfo struct {
-	Info      map[ContainerInfo]struct{}
-	LastCheck time.Time
-	AvailMode AvailabilityMode
-}
-
-type imageLastCheckPair struct {
-	image     string
-	lastCheck time.Time
+	ContainerInfo map[ContainerInfo]struct{}
+	AvailMode     AvailabilityMode
 }
 
 type ImageStore struct {
 	lock sync.RWMutex
 
 	imageSet map[string]ImageInfo
-	pq       *binaryheap.Heap
+	queue    *deque.Deque
+	errQueue *deque.Deque
+
+	check checkFunc
+
+	concurrentNormalChecks int
+	concurrentErrorChecks  int
 }
 
-func NewImageStore() *ImageStore {
+type checkFunc func(imageName string) AvailabilityMode
+type gcFunc func(image string) []ContainerInfo
+
+func NewImageStore(check checkFunc, concurrentNormalChecks, concurrentErrorChecks int) *ImageStore {
 	return &ImageStore{
-		imageSet: map[string]ImageInfo{},
-		pq:       binaryheap.NewWith(compareTimeInPair),
+		imageSet: make(map[string]ImageInfo),
+		queue:    deque.New(2048, 2048),
+		errQueue: deque.New(512, 512),
+
+		check: check,
+
+		concurrentNormalChecks: concurrentNormalChecks,
+		concurrentErrorChecks:  concurrentErrorChecks,
 	}
 }
 
-func (imgStore *ImageStore) UpdateContainerAssociations(image string, containerInfos []ContainerInfo) {
-	var containerInfoMap = map[ContainerInfo]struct{}{}
+func (s *ImageStore) RunGC(gc gcFunc) {
+	go wait.Forever(func() {
+		s.lock.Lock()
+		defer s.lock.Unlock()
 
-	for _, info := range containerInfos {
-		containerInfoMap[info] = struct{}{}
-	}
+		for image, imgInfo := range s.imageSet {
+			ci := gc(image)
 
-	imgStore.lock.Lock()
-	imageInfo := imgStore.imageSet[image]
-	imageInfo.Info = containerInfoMap
-	imgStore.imageSet[image] = imageInfo
-	imgStore.lock.Unlock()
-}
+			if len(ci) == 0 {
+				delete(s.imageSet, image)
 
-func (imgStore *ImageStore) RemoveContainerAssociation(image, namespace, kind, name, container string) {
-	imgStore.lock.Lock()
-	defer imgStore.lock.Unlock()
-
-	delete(imgStore.imageSet[image].Info, ContainerInfo{
-		Namespace:      namespace,
-		ControllerKind: kind,
-		ControllerName: name,
-		Container:      container,
-	})
-}
-
-func (imgStore *ImageStore) ExtractMetrics() (ret []prometheus.Metric) {
-	imgStore.lock.RLock()
-	defer imgStore.lock.RUnlock()
-
-	for imageName, image := range imgStore.imageSet {
-		for k := range image.Info {
-			if image.LastCheck.IsZero() {
 				continue
 			}
-			ret = append(ret, newNamedConstMetrics(k.ControllerKind, k.ControllerName, k.Namespace, k.Container, imageName, image.AvailMode)...)
+
+			imgInfo.ContainerInfo = containerInfoSliceToSet(ci)
+			s.imageSet[image] = imgInfo
+		}
+
+	}, 15*time.Minute)
+}
+
+func (s *ImageStore) ExtractMetrics() (ret []prometheus.Metric) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
+	for imageName, info := range s.imageSet {
+		for containerInfo := range info.ContainerInfo {
+			ret = append(ret, newNamedConstMetrics(containerInfo.ControllerKind, containerInfo.ControllerName,
+				containerInfo.Namespace, containerInfo.Container, imageName, info.AvailMode)...)
 		}
 	}
 
 	return
 }
 
-func (imgStore *ImageStore) AddOrUpdateImage(imageName string, lastCheck time.Time, availMode ...AvailabilityMode) {
-	imgStore.lock.Lock()
-	defer imgStore.lock.Unlock()
+func (s *ImageStore) ReconcileImage(imageName string, containerInfos []ContainerInfo) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 
-	var mode AvailabilityMode
-	if len(availMode) != 0 {
-		mode = availMode[0]
-	}
+	if len(containerInfos) == 0 {
+		delete(s.imageSet, imageName)
 
-	if _, ok := imgStore.imageSet[imageName]; ok && lastCheck.IsZero() {
 		return
-	} else if !ok {
-		imgStore.imageSet[imageName] = ImageInfo{
-			Info:      map[ContainerInfo]struct{}{},
-			LastCheck: lastCheck,
-			AvailMode: mode,
-		}
-		imgStore.pq.Push(imageLastCheckPair{
-			image:     imageName,
-			lastCheck: lastCheck,
-		})
-	} else {
-		imageInfo := imgStore.imageSet[imageName]
-		imageInfo.LastCheck = lastCheck
-		imageInfo.AvailMode = mode
-		imgStore.imageSet[imageName] = imageInfo
-
-		imgStore.pq.Push(imageLastCheckPair{
-			image:     imageName,
-			lastCheck: lastCheck,
-		})
-	}
-}
-
-func (imgStore *ImageStore) RemoveImage(imageName string) {
-	imgStore.lock.Lock()
-	defer imgStore.lock.Unlock()
-
-	delete(imgStore.imageSet, imageName)
-}
-
-func (imgStore *ImageStore) Length() int {
-	return len(imgStore.imageSet)
-}
-
-func (imgStore *ImageStore) PopOldestImages(count int) (ret []string) {
-	imgStore.lock.Lock()
-	defer imgStore.lock.Unlock()
-
-	if count == 0 {
-		count = 1
 	}
 
-	for i := 0; i < count; i++ {
-		value, exists := imgStore.pq.Pop()
-		if !exists {
-			break
+	imageInfo, ok := s.imageSet[imageName]
+	if !ok {
+		containerInfoMap := containerInfoSliceToSet(containerInfos)
+
+		s.imageSet[imageName] = ImageInfo{ContainerInfo: containerInfoMap}
+		s.queue.PushBack(imageName)
+
+		return
+	}
+
+	for _, ci := range containerInfos {
+		imageInfo.ContainerInfo[ci] = struct{}{}
+	}
+
+	s.imageSet[imageName] = imageInfo
+}
+
+func (s *ImageStore) Check() {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	var (
+		normalChecks = s.concurrentNormalChecks
+		errChecks    = s.concurrentErrorChecks
+	)
+
+	if qLen := s.queue.Len(); qLen < s.concurrentNormalChecks {
+		normalChecks = qLen
+	}
+	if qLen := s.errQueue.Len(); qLen < s.concurrentErrorChecks {
+		errChecks = qLen
+	}
+
+	errPops := s.popCheckPush(true, errChecks)
+
+	if errPops < errChecks {
+		normalChecks += errChecks - errPops
+	}
+
+	_ = s.popCheckPush(false, normalChecks)
+}
+
+func (s *ImageStore) popCheckPush(errQ bool, count int) (pops int) {
+	for pops < count {
+		var imageRaw interface{}
+		if errQ {
+			imageRaw = s.errQueue.PopFront()
+		} else {
+			imageRaw = s.queue.PopFront()
 		}
 
-		pair := value.(imageLastCheckPair)
-		// lazily remove pair from priority queue if an image doesn't exist in the imageSet
-		if _, ok := imgStore.imageSet[pair.image]; !ok {
+		image := imageRaw.(string)
+
+		availMode := s.check(image)
+
+		imageInfo, ok := s.imageSet[image]
+		if !ok {
 			continue
 		}
 
-		ret = append(ret, pair.image)
+		imageInfo.AvailMode = availMode
+
+		s.imageSet[image] = imageInfo
+
+		if availMode == Available {
+			s.queue.PushBack(image)
+		} else {
+			s.errQueue.PushBack(image)
+		}
+
+		pops++
 	}
 
 	return
 }
 
-func compareTimeInPair(a, b interface{}) int {
-	first := a.(imageLastCheckPair)
-	second := b.(imageLastCheckPair)
-
-	switch {
-	case first.lastCheck.Before(second.lastCheck):
-		return -1
-	case first.lastCheck.After(second.lastCheck):
-		return 1
-	default:
-		return 0
+func containerInfoSliceToSet(containerInfos []ContainerInfo) map[ContainerInfo]struct{} {
+	var containerInfoMap = make(map[ContainerInfo]struct{})
+	for _, ci := range containerInfos {
+		containerInfoMap[ci] = struct{}{}
 	}
+
+	return containerInfoMap
 }
 
 func newNamedConstMetrics(ownerKind, ownerName, namespace, container, image string, avalMode AvailabilityMode) (ret []prometheus.Metric) {
@@ -224,7 +234,7 @@ func newNamedConstMetrics(ownerKind, ownerName, namespace, container, image stri
 }
 
 func getMetricByControllerKind(controllerKind string, labels map[string]string, mode AvailabilityMode) (ret []prometheus.Metric) {
-	for availMode, desc := range AvailabilityModeDescMap() {
+	for availMode, desc := range AvailabilityModeDescMap {
 		var value float64
 		if availMode == mode {
 			value = 1

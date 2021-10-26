@@ -1,8 +1,8 @@
 package registry_checker
 
 import (
+	"context"
 	"fmt"
-	"k8s.io/client-go/kubernetes"
 	"reflect"
 
 	"github.com/flant/k8s-image-availability-exporter/pkg/store"
@@ -12,6 +12,7 @@ import (
 	batchv1beta "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -157,7 +158,7 @@ func ExtractPullSecretRefs(kubeClient *kubernetes.Clientset, obj interface{}) (r
 	// We are acting the same way as kubelet does:
 	// https://github.com/kubernetes/kubernetes/blob/88b31814f4a55c0af1c7d2712ce736a8fe08887e/plugin/pkg/admission/serviceaccount/admission.go#L163-L168.
 	if len(pullSecretRefs) == 0 && len(podSpec.ServiceAccountName) > 0 {
-		serviceAccount, err := kubeClient.CoreV1().ServiceAccounts(namespace).Get(podSpec.ServiceAccountName, metav1.GetOptions{})
+		serviceAccount, err := kubeClient.CoreV1().ServiceAccounts(namespace).Get(context.TODO(), podSpec.ServiceAccountName, metav1.GetOptions{})
 		if err == nil {
 			pullSecretRefs = append(pullSecretRefs, extractPullSecretRefsFromServiceAccount(namespace, *serviceAccount)...)
 		}
@@ -205,12 +206,6 @@ func (ci ControllerIndexers) GetKeysByIndex(image string) (ret []string) {
 	}
 
 	return
-}
-
-func (ci ControllerIndexers) CheckImageExistence(image string) bool {
-	keys := ci.GetKeysByIndex(image)
-
-	return len(keys) > 0
 }
 
 func (ci ControllerIndexers) GetContainerInfosForImage(image string) (ret []store.ContainerInfo) {

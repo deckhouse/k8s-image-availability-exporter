@@ -1,13 +1,17 @@
 package registry_checker
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
+	"net/http"
+	"path"
+	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"net/http"
-	"sync"
-	"time"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -21,12 +25,17 @@ import (
 
 	"github.com/flant/k8s-image-availability-exporter/pkg/store"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
 )
 
 const (
-	resyncPeriod = time.Hour
+	resyncPeriod         = time.Hour
+	failedCheckBatchSize = 20
+	checkBatchSize       = 50
 )
+
+type registryCheckerConfig struct {
+	defaultRegistry string
+}
 
 type RegistryChecker struct {
 	imageStore *store.ImageStore
@@ -44,14 +53,19 @@ type RegistryChecker struct {
 	registryTransport *http.Transport
 
 	kubeClient *kubernetes.Clientset
+
+	config registryCheckerConfig
 }
 
 func NewRegistryChecker(
+	stopCh <-chan struct{},
 	kubeClient *kubernetes.Clientset,
 	skipVerify bool,
 	ignoredImages []string,
 	specificNamespace string,
+	defaultRegistry string,
 ) *RegistryChecker {
+
 	informerFactory := informers.NewSharedInformerFactory(kubeClient, time.Hour)
 	if specificNamespace != "" {
 		informerFactory = informers.NewSharedInformerFactoryWithOptions(kubeClient, time.Hour, informers.WithNamespace(specificNamespace))
@@ -63,8 +77,6 @@ func NewRegistryChecker(
 	}
 
 	rc := &RegistryChecker{
-		imageStore: store.NewImageStore(),
-
 		deploymentsInformer:  informerFactory.Apps().V1().Deployments(),
 		statefulSetsInformer: informerFactory.Apps().V1().StatefulSets(),
 		daemonSetsInformer:   informerFactory.Apps().V1().DaemonSets(),
@@ -76,16 +88,18 @@ func NewRegistryChecker(
 		registryTransport: customTransport,
 
 		kubeClient: kubeClient,
+
+		config: registryCheckerConfig{
+			defaultRegistry: defaultRegistry,
+		},
 	}
 
 	for _, image := range ignoredImages {
 		rc.ignoredImages[image] = struct{}{}
 	}
 
-	return rc
-}
+	rc.imageStore = store.NewImageStore(rc.Check, checkBatchSize, failedCheckBatchSize)
 
-func (rc *RegistryChecker) Run(stopCh <-chan struct{}) {
 	rc.deploymentsInformer.Informer().AddEventHandlerWithResyncPeriod(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			rc.reconcile(obj)
@@ -165,6 +179,26 @@ func (rc *RegistryChecker) Run(stopCh <-chan struct{}) {
 	cache.WaitForCacheSync(stopCh, rc.deploymentsInformer.Informer().HasSynced, rc.statefulSetsInformer.Informer().HasSynced,
 		rc.daemonSetsInformer.Informer().HasSynced, rc.cronJobsInformer.Informer().HasSynced, rc.secretsInformer.Informer().HasSynced)
 	logrus.Info("Caches populated successfully")
+
+	rc.imageStore.RunGC(rc.controllerIndexers.GetContainerInfosForImage)
+
+	return rc
+}
+
+// Collect implements prometheus.Collector.
+func (rc *RegistryChecker) Collect(ch chan<- prometheus.Metric) {
+	metrics := rc.imageStore.ExtractMetrics()
+
+	for _, m := range metrics {
+		ch <- m
+	}
+}
+
+// Describe implements prometheus.Collector.
+func (rc *RegistryChecker) Describe(_ chan<- *prometheus.Desc) {}
+
+func (rc RegistryChecker) Tick() {
+	rc.imageStore.Check()
 }
 
 func (rc *RegistryChecker) reconcile(obj interface{}) {
@@ -196,12 +230,13 @@ func (rc *RegistryChecker) reconcile(obj interface{}) {
 			}
 		}
 
-		if skipObject || !rc.controllerIndexers.CheckImageExistence(image) {
-			rc.imageStore.RemoveImage(image)
+		if skipObject {
+			rc.imageStore.ReconcileImage(image, []store.ContainerInfo{})
 			continue
 		}
 
-		rc.imageStore.AddOrUpdateImage(image, time.Time{})
+		containerInfos := rc.controllerIndexers.GetContainerInfosForImage(image)
+		rc.imageStore.ReconcileImage(image, containerInfos)
 	}
 }
 
@@ -213,41 +248,40 @@ func (rc *RegistryChecker) reconcileUpdate(a, b interface{}) {
 	rc.reconcile(b)
 }
 
-func (rc *RegistryChecker) Check() {
-	// TODO: tweak const
-	oldImages := rc.imageStore.PopOldestImages(rc.imageStore.Length() / 40)
+func (rc *RegistryChecker) Check(imageName string) store.AvailabilityMode {
+	keyChain := rc.controllerIndexers.GetKeychainForImage(rc.kubeClient, imageName)
 
-	var processingGroup sync.WaitGroup
-	for _, image := range oldImages {
-		keyChain := rc.controllerIndexers.GetKeychainForImage(rc.kubeClient, image)
-
-		// TODO: backoff
-		processingGroup.Add(1)
-		go func(imageName string, kc *keychain) {
-			defer processingGroup.Done()
-
-			log := logrus.WithField("image_name", imageName)
-			availMode := rc.checkImageAvailability(log, imageName, kc)
-
-			rc.imageStore.AddOrUpdateImage(imageName, time.Now(), availMode)
-		}(image, keyChain)
-
-		containerInfos := rc.controllerIndexers.GetContainerInfosForImage(image)
-		rc.imageStore.UpdateContainerAssociations(image, containerInfos)
-	}
-
-	processingGroup.Wait()
+	log := logrus.WithField("image_name", imageName)
+	return rc.checkImageAvailability(log, imageName, keyChain)
 }
 
-func (rc *RegistryChecker) checkImageAvailability(log *logrus.Entry, imageName string, kc *keychain) (availMode store.AvailabilityMode) {
-	ref, err := name.ParseReference(imageName)
+func checkImageNameParseErr(log *logrus.Entry, err error) store.AvailabilityMode {
 	var parseErr *name.ErrBadName
 	if errors.As(err, &parseErr) {
 		log.WithField("availability_mode", store.BadImageName.String()).Error(err)
 		return store.BadImageName
-	} else if err != nil {
-		log.WithField("availability_mode", store.UnknownError.String()).Error(err)
-		return store.UnknownError
+	}
+
+	log.WithField("availability_mode", store.UnknownError.String()).Error(err)
+	return store.UnknownError
+}
+
+func (rc *RegistryChecker) checkImageAvailability(log *logrus.Entry, imageName string, kc *keychain) (availMode store.AvailabilityMode) {
+	var (
+		ref name.Reference
+		err error
+	)
+
+	ref, err = name.ParseReference(imageName)
+	if err != nil {
+		return checkImageNameParseErr(log, err)
+	}
+
+	if ref.Context().RegistryStr() == name.DefaultRegistry && rc.config.defaultRegistry != "" {
+		ref, err = name.ParseReference(path.Join(rc.config.defaultRegistry, imageName))
+		if err != nil {
+			return checkImageNameParseErr(log, err)
+		}
 	}
 
 	var imgErr error
@@ -256,12 +290,16 @@ func (rc *RegistryChecker) checkImageAvailability(log *logrus.Entry, imageName s
 		Factor:   2,
 		Steps:    2,
 	}, func() (bool, error) {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+
 		if kc != nil {
 			for i := 0; i < kc.size; i++ {
 				indexedKeychain := *kc
 				indexedKeychain.index = i
 
-				_, imgErr = remote.Image(ref, remote.WithAuthFromKeychain(&indexedKeychain), remote.WithTransport(rc.registryTransport))
+				_, imgErr = remote.Head(ref, remote.WithAuthFromKeychain(&indexedKeychain), remote.WithTransport(rc.registryTransport),
+					remote.WithContext(ctx))
 
 				if imgErr != nil {
 					continue
@@ -272,7 +310,7 @@ func (rc *RegistryChecker) checkImageAvailability(log *logrus.Entry, imageName s
 				}
 			}
 		} else {
-			_, imgErr = remote.Image(ref, remote.WithTransport(rc.registryTransport))
+			_, imgErr = remote.Head(ref, remote.WithTransport(rc.registryTransport), remote.WithContext(ctx))
 		}
 
 		availMode = store.Available
