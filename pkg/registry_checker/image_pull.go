@@ -2,6 +2,7 @@ package registry_checker
 
 import (
 	"errors"
+	"net/http"
 
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
@@ -15,13 +16,7 @@ func IsAbsent(err error) bool {
 		return false
 	}
 
-	for _, transportError := range transpErr.Errors {
-		if transportError.Code == transport.ManifestUnknownErrorCode {
-			return true
-		}
-	}
-
-	return false
+	return transpErr.StatusCode == http.StatusNotFound
 }
 
 func IsAuthnFail(err error) bool {
@@ -32,13 +27,7 @@ func IsAuthnFail(err error) bool {
 		return false
 	}
 
-	for _, transportError := range transpErr.Errors {
-		if transportError.Code == transport.UnauthorizedErrorCode {
-			return true
-		}
-	}
-
-	return false
+	return transpErr.StatusCode == http.StatusUnauthorized
 }
 
 func IsAuthzFail(err error) bool {
@@ -49,13 +38,7 @@ func IsAuthzFail(err error) bool {
 		return false
 	}
 
-	for _, transportError := range transpErr.Errors {
-		if transportError.Code == transport.DeniedErrorCode {
-			return true
-		}
-	}
-
-	return false
+	return transpErr.StatusCode == http.StatusForbidden
 }
 
 func IsOldRegistry(err error) bool {
