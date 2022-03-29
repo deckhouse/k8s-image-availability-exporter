@@ -29,7 +29,7 @@ import (
 
 func main() {
 	imageCheckInterval := flag.Duration("check-interval", time.Minute, "image re-check interval")
-	ignoredImagesStr := flag.String("ignored-images", "", "comma-separated image names to ignore")
+	ignoredImagesStr := flag.String("ignored-images", "", "comma-separated image regexes to ignore, each image will be checked against this list of regexes")
 	bindAddr := flag.String("bind-address", ":8080", "address:port to bind /metrics endpoint to")
 	insecureSkipVerify := flag.Bool("skip-registry-cert-verification", false, "whether to skip registries' certificate verification")
 	specificNamespace := flag.String("namespace", "", "inspect specific namespace instead of whole k8s cluster")
