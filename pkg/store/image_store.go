@@ -4,11 +4,9 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/gammazero/deque"
 	"github.com/prometheus/client_golang/prometheus"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 type AvailabilityMode int
@@ -63,7 +61,6 @@ type ImageStore struct {
 }
 
 type checkFunc func(imageName string) AvailabilityMode
-type gcFunc func(image string) []ContainerInfo
 
 func NewImageStore(check checkFunc, concurrentNormalChecks, concurrentErrorChecks int) *ImageStore {
 	return &ImageStore{
@@ -76,27 +73,6 @@ func NewImageStore(check checkFunc, concurrentNormalChecks, concurrentErrorCheck
 		concurrentNormalChecks: concurrentNormalChecks,
 		concurrentErrorChecks:  concurrentErrorChecks,
 	}
-}
-
-func (s *ImageStore) RunGC(gc gcFunc) {
-	go wait.Forever(func() {
-		s.lock.Lock()
-		defer s.lock.Unlock()
-
-		for image, imgInfo := range s.imageSet {
-			ci := gc(image)
-
-			if len(ci) == 0 {
-				delete(s.imageSet, image)
-
-				continue
-			}
-
-			imgInfo.ContainerInfo = containerInfoSliceToSet(ci)
-			s.imageSet[image] = imgInfo
-		}
-
-	}, 15*time.Minute)
 }
 
 func (s *ImageStore) ExtractMetrics() (ret []prometheus.Metric) {
@@ -141,9 +117,6 @@ func (s *ImageStore) ReconcileImage(imageName string, containerInfos []Container
 }
 
 func (s *ImageStore) Check() {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
 	var (
 		normalChecks = s.concurrentNormalChecks
 		errChecks    = s.concurrentErrorChecks
@@ -167,24 +140,31 @@ func (s *ImageStore) Check() {
 
 func (s *ImageStore) popCheckPush(errQ bool, count int) (pops int) {
 	for pops < count {
+		s.lock.Lock()
 		var imageRaw interface{}
 		if errQ {
 			imageRaw = s.errQueue.PopFront()
 		} else {
 			imageRaw = s.queue.PopFront()
 		}
-
+		pops++
 		image := imageRaw.(string)
 
+		_, ok := s.imageSet[image]
+		if !ok {
+			continue
+		}
+		s.lock.Unlock()
+
 		availMode := s.check(image)
+
+		s.lock.Lock()
 
 		imageInfo, ok := s.imageSet[image]
 		if !ok {
 			continue
 		}
-
 		imageInfo.AvailMode = availMode
-
 		s.imageSet[image] = imageInfo
 
 		if availMode == Available {
@@ -193,7 +173,7 @@ func (s *ImageStore) popCheckPush(errQ bool, count int) (pops int) {
 			s.errQueue.PushBack(image)
 		}
 
-		pops++
+		s.lock.Unlock()
 	}
 
 	return

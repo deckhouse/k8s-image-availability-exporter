@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -42,7 +43,7 @@ func main() {
 	})
 	logrus.AddHook(logging.NewPrometheusHook())
 
-	// set up signals so we handle the first shutdown signal gracefully
+	// set up signals, so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 
 	cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}).ClientConfig()
@@ -64,11 +65,17 @@ func main() {
 	)
 	prometheus.MustRegister(liveTicksCounter)
 
+	var regexes []regexp.Regexp
+	regexStrings := strings.Split(*ignoredImagesStr, ",")
+	for _, regexStr := range regexStrings {
+		regexes = append(regexes, *regexp.MustCompile(regexStr))
+	}
+
 	registryChecker := registry_checker.NewRegistryChecker(
 		stopCh,
 		kubeClient,
 		*insecureSkipVerify,
-		strings.Split(*ignoredImagesStr, ","),
+		regexes,
 		*specificNamespace,
 		*defaultRegistry,
 	)

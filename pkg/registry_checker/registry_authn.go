@@ -41,7 +41,7 @@ func (kc *keychain) Resolve(target authn.Resource) (authn.Authenticator, error) 
 	if repo, ok := target.(name.Repository); ok {
 		image = repo.String()
 	} else {
-		// Lookup expects an image reference and we only have a registry.
+		// Lookup expects an image reference, and we only have a registry.
 		image = target.RegistryStr() + "/foo/bar"
 	}
 
