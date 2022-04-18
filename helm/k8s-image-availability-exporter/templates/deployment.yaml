@@ -21,7 +21,19 @@ spec:
     spec:
       containers:
       - name: k8s-image-availability-exporter
-        args: ["--bind-address=:8080"]
+        {{- if .Values.k8sImageAvailabilityExporter.args }}
+        args:
+        {{- range .Values.k8sImageAvailabilityExporter.args }}
+          - {{ . }}
+        {{- end }}
+        {{- end }}
+        {{- if .Values.k8sImageAvailabilityExporter.env }}
+        env:
+        {{- range .Values.k8sImageAvailabilityExporter.env }}
+          - name: {{ .name }}
+            value: {{ .value }}
+        {{- end }}
+        {{- end }}
         ports:
         - containerPort: 8080
           name: http
