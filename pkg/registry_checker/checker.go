@@ -249,6 +249,30 @@ func (rc *RegistryChecker) Check(imageName string) store.AvailabilityMode {
 	return rc.checkImageAvailability(log, imageName, keyChain)
 }
 
+func (rc *RegistryChecker) checkImageAvailability(log *logrus.Entry, imageName string, kc *keychain) (availMode store.AvailabilityMode) {
+	ref, err := parseImageName(imageName, rc.config.defaultRegistry)
+	if err != nil {
+		return checkImageNameParseErr(log, err)
+	}
+
+	imgErr := wait.ExponentialBackoff(wait.Backoff{
+		Duration: time.Second,
+		Factor:   2,
+		Steps:    2,
+	}, func() (bool, error) {
+		var err error
+		availMode, err = check(ref, kc, rc.registryTransport)
+
+		return availMode == store.Available, err
+	})
+
+	if availMode != store.Available {
+		log.WithField("availability_mode", availMode.String()).Error(imgErr)
+	}
+
+	return
+}
+
 func checkImageNameParseErr(log *logrus.Entry, err error) store.AvailabilityMode {
 	var parseErr *name.ErrBadName
 	if errors.As(err, &parseErr) {
@@ -306,28 +330,4 @@ func check(ref name.Reference, kc *keychain, registryTransport *http.Transport) 
 	}
 
 	return availMode, imgErr
-}
-
-func (rc *RegistryChecker) checkImageAvailability(log *logrus.Entry, imageName string, kc *keychain) (availMode store.AvailabilityMode) {
-	ref, err := parseImageName(imageName, rc.config.defaultRegistry)
-	if err != nil {
-		return checkImageNameParseErr(log, err)
-	}
-
-	imgErr := wait.ExponentialBackoff(wait.Backoff{
-		Duration: time.Second,
-		Factor:   2,
-		Steps:    2,
-	}, func() (bool, error) {
-		var err error
-		availMode, err = check(ref, kc, rc.registryTransport)
-
-		return availMode == store.Available, err
-	})
-
-	if availMode != store.Available {
-		log.WithField("availability_mode", availMode.String()).Error(imgErr)
-	}
-
-	return
 }
