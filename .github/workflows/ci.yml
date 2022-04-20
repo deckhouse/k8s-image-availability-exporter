@@ -51,6 +51,7 @@ jobs:
         args: --timeout=5m
   build:
     runs-on: ubuntu-latest
+    needs: test
     permissions:
       contents: read
       packages: write
