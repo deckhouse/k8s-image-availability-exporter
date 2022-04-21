@@ -6,8 +6,13 @@ env:
 
 on:
   push:
+    tags:
+    - v*
+    branches:
+    - master
   pull_request:
-    types: "[opened, synchronize, reopened]"
+    branches:
+    - master
 
 defaults:
   run:
