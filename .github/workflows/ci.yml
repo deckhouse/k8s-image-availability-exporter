@@ -2,12 +2,12 @@ name: CI
 on:
   push:
     tags:
-      - v*
+    - v*
     branches:
-     - master
+    - master
   pull_request:
     branches:
-      - master
+    - master
 env:
   REGISTRY: registry-write.deckhouse.io
   IMAGE_NAME: k8s-image-availability-exporter/k8s-image-availability-exporter
