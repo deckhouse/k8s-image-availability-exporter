@@ -1,7 +1,7 @@
 k8sImageAvailabilityExporter:
   image:
     repository: registry.deckhouse.io/k8s-image-availability-exporter/k8s-image-availability-exporter
-    tag: v0.2.1
+    tag: v0.3.0
     pullPolicy: IfNotPresent
   replicas: 1
   resources: {}
