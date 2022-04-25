@@ -202,38 +202,39 @@ func (rc RegistryChecker) Tick() {
 func (rc *RegistryChecker) reconcile(obj interface{}) {
 	images := ExtractImages(obj)
 
-	for _, image := range images {
-		for _, ignoredImageRegex := range rc.ignoredImagesRegex {
-			if ignoredImageRegex.MatchString(image) {
+	imagesLoop:
+		for _, image := range images {
+			for _, ignoredImageRegex := range rc.ignoredImagesRegex {
+				if ignoredImageRegex.MatchString(image) {
+					continue imagesLoop
+				}
+			}
+
+			var skipObject bool
+
+			switch typedObj := obj.(type) {
+			case *appsv1.Deployment:
+				if typedObj.Status.Replicas == 0 {
+					skipObject = true
+				}
+			case *appsv1.StatefulSet:
+				if typedObj.Status.Replicas == 0 {
+					skipObject = true
+				}
+			case *appsv1.DaemonSet:
+				if typedObj.Status.CurrentNumberScheduled == 0 {
+					skipObject = true
+				}
+			}
+
+			if skipObject {
+				rc.imageStore.ReconcileImage(image, []store.ContainerInfo{})
 				continue
 			}
+
+			containerInfos := rc.controllerIndexers.GetContainerInfosForImage(image)
+			rc.imageStore.ReconcileImage(image, containerInfos)
 		}
-
-		var skipObject bool
-
-		switch typedObj := obj.(type) {
-		case *appsv1.Deployment:
-			if typedObj.Status.Replicas == 0 {
-				skipObject = true
-			}
-		case *appsv1.StatefulSet:
-			if typedObj.Status.Replicas == 0 {
-				skipObject = true
-			}
-		case *appsv1.DaemonSet:
-			if typedObj.Status.CurrentNumberScheduled == 0 {
-				skipObject = true
-			}
-		}
-
-		if skipObject {
-			rc.imageStore.ReconcileImage(image, []store.ContainerInfo{})
-			continue
-		}
-
-		containerInfos := rc.controllerIndexers.GetContainerInfosForImage(image)
-		rc.imageStore.ReconcileImage(image, containerInfos)
-	}
 }
 
 func (rc *RegistryChecker) reconcileUpdate(a, b interface{}) {
