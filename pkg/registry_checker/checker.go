@@ -178,6 +178,8 @@ func NewRegistryChecker(
 		rc.daemonSetsInformer.Informer().HasSynced, rc.cronJobsInformer.Informer().HasSynced, rc.secretsInformer.Informer().HasSynced)
 	logrus.Info("Caches populated successfully")
 
+	rc.imageStore.RunGC(rc.controllerIndexers.GetContainerInfosForImage)
+
 	return rc
 }
 

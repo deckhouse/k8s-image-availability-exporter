@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gammazero/deque"
 	"github.com/prometheus/client_golang/prometheus"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 type AvailabilityMode int
@@ -61,6 +63,7 @@ type ImageStore struct {
 }
 
 type checkFunc func(imageName string) AvailabilityMode
+type gcFunc func(image string) []ContainerInfo
 
 func NewImageStore(check checkFunc, concurrentNormalChecks, concurrentErrorChecks int) *ImageStore {
 	return &ImageStore{
@@ -73,6 +76,27 @@ func NewImageStore(check checkFunc, concurrentNormalChecks, concurrentErrorCheck
 		concurrentNormalChecks: concurrentNormalChecks,
 		concurrentErrorChecks:  concurrentErrorChecks,
 	}
+}
+
+func (s *ImageStore) RunGC(gc gcFunc) {
+	go wait.Forever(func() {
+		s.lock.Lock()
+		defer s.lock.Unlock()
+
+		for image, imgInfo := range s.imageSet {
+			ci := gc(image)
+
+			if len(ci) == 0 {
+				delete(s.imageSet, image)
+
+				continue
+			}
+
+			imgInfo.ContainerInfo = containerInfoSliceToSet(ci)
+			s.imageSet[image] = imgInfo
+		}
+
+	}, 2*time.Minute)
 }
 
 func (s *ImageStore) ExtractMetrics() (ret []prometheus.Metric) {
