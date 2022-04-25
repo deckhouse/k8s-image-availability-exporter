@@ -158,8 +158,14 @@ func ExtractPullSecretRefs(kubeClient *kubernetes.Clientset, obj interface{}) (r
 	// Image pull secret defined in Pod's `spec.ImagePullSecrets` takes preference over the secret from ServiceAccount.
 	// We are acting the same way as kubelet does:
 	// https://github.com/kubernetes/kubernetes/blob/88b31814f4a55c0af1c7d2712ce736a8fe08887e/plugin/pkg/admission/serviceaccount/admission.go#L163-L168.
-	if len(pullSecretRefs) == 0 && len(podSpec.ServiceAccountName) > 0 {
-		serviceAccount, err := kubeClient.CoreV1().ServiceAccounts(namespace).Get(context.TODO(), podSpec.ServiceAccountName, metav1.GetOptions{})
+	if len(pullSecretRefs) == 0 {
+		var serviceAccountName string
+		if len(podSpec.ServiceAccountName) > 0 {
+			serviceAccountName = podSpec.ServiceAccountName
+		} else {
+			serviceAccountName = "default"
+		}
+		serviceAccount, err := kubeClient.CoreV1().ServiceAccounts(namespace).Get(context.TODO(), serviceAccountName, metav1.GetOptions{})
 		if err == nil {
 			pullSecretRefs = append(pullSecretRefs, extractPullSecretRefsFromServiceAccount(namespace, *serviceAccount)...)
 		}
