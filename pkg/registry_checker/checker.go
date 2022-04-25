@@ -285,7 +285,16 @@ func checkImageNameParseErr(log *logrus.Entry, err error) store.AvailabilityMode
 }
 
 func parseImageName(image string, defaultRegistry string) (name.Reference, error) {
-	ref, err := name.ParseReference(image, name.WithDefaultRegistry(defaultRegistry))
+	var (
+		ref name.Reference
+		err error
+	)
+
+	if len(defaultRegistry) == 0 {
+		ref, err = name.ParseReference(image)
+	} else {
+		ref, err = name.ParseReference(image, name.WithDefaultRegistry(defaultRegistry))
+	}
 	if err != nil {
 		return nil, err
 	}

@@ -152,6 +152,7 @@ func (s *ImageStore) popCheckPush(errQ bool, count int) (pops int) {
 
 		_, ok := s.imageSet[image]
 		if !ok {
+			s.lock.Unlock()
 			continue
 		}
 		s.lock.Unlock()
@@ -162,6 +163,7 @@ func (s *ImageStore) popCheckPush(errQ bool, count int) (pops int) {
 
 		imageInfo, ok := s.imageSet[image]
 		if !ok {
+			s.lock.Unlock()
 			continue
 		}
 		imageInfo.AvailMode = availMode
