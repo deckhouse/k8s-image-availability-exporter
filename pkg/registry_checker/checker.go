@@ -5,13 +5,14 @@ import (
 	"crypto/tls"
 	"errors"
 	"net/http"
-	"path"
+	"regexp"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -23,8 +24,9 @@ import (
 
 	"k8s.io/client-go/informers"
 
-	"github.com/flant/k8s-image-availability-exporter/pkg/store"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/flant/k8s-image-availability-exporter/pkg/store"
 )
 
 const (
@@ -48,7 +50,7 @@ type RegistryChecker struct {
 
 	controllerIndexers ControllerIndexers
 
-	ignoredImages map[string]struct{}
+	ignoredImagesRegex []regexp.Regexp
 
 	registryTransport *http.Transport
 
@@ -61,7 +63,7 @@ func NewRegistryChecker(
 	stopCh <-chan struct{},
 	kubeClient *kubernetes.Clientset,
 	skipVerify bool,
-	ignoredImages []string,
+	ignoredImages []regexp.Regexp,
 	specificNamespace string,
 	defaultRegistry string,
 ) *RegistryChecker {
@@ -83,7 +85,7 @@ func NewRegistryChecker(
 		cronJobsInformer:     informerFactory.Batch().V1beta1().CronJobs(),
 		secretsInformer:      informerFactory.Core().V1().Secrets(),
 
-		ignoredImages: map[string]struct{}{},
+		ignoredImagesRegex: ignoredImages,
 
 		registryTransport: customTransport,
 
@@ -92,10 +94,6 @@ func NewRegistryChecker(
 		config: registryCheckerConfig{
 			defaultRegistry: defaultRegistry,
 		},
-	}
-
-	for _, image := range ignoredImages {
-		rc.ignoredImages[image] = struct{}{}
 	}
 
 	rc.imageStore = store.NewImageStore(rc.Check, checkBatchSize, failedCheckBatchSize)
@@ -202,15 +200,13 @@ func (rc RegistryChecker) Tick() {
 }
 
 func (rc *RegistryChecker) reconcile(obj interface{}) {
-	images, err := ExtractImages(obj)
-	// TODO: recover?
-	if err != nil {
-		panic(err)
-	}
+	images := ExtractImages(obj)
 
 	for _, image := range images {
-		if _, ok := rc.ignoredImages[image]; ok {
-			continue
+		for _, ignoredImageRegex := range rc.ignoredImagesRegex {
+			if ignoredImageRegex.MatchString(image) {
+				continue
+			}
 		}
 
 		var skipObject bool
@@ -255,6 +251,30 @@ func (rc *RegistryChecker) Check(imageName string) store.AvailabilityMode {
 	return rc.checkImageAvailability(log, imageName, keyChain)
 }
 
+func (rc *RegistryChecker) checkImageAvailability(log *logrus.Entry, imageName string, kc *keychain) (availMode store.AvailabilityMode) {
+	ref, err := parseImageName(imageName, rc.config.defaultRegistry)
+	if err != nil {
+		return checkImageNameParseErr(log, err)
+	}
+
+	imgErr := wait.ExponentialBackoff(wait.Backoff{
+		Duration: time.Second,
+		Factor:   2,
+		Steps:    2,
+	}, func() (bool, error) {
+		var err error
+		availMode, err = check(ref, kc, rc.registryTransport)
+
+		return availMode == store.Available, err
+	})
+
+	if availMode != store.Available {
+		log.WithField("availability_mode", availMode.String()).Error(imgErr)
+	}
+
+	return
+}
+
 func checkImageNameParseErr(log *logrus.Entry, err error) store.AvailabilityMode {
 	var parseErr *name.ErrBadName
 	if errors.As(err, &parseErr) {
@@ -266,72 +286,59 @@ func checkImageNameParseErr(log *logrus.Entry, err error) store.AvailabilityMode
 	return store.UnknownError
 }
 
-func (rc *RegistryChecker) checkImageAvailability(log *logrus.Entry, imageName string, kc *keychain) (availMode store.AvailabilityMode) {
+func parseImageName(image string, defaultRegistry string) (name.Reference, error) {
 	var (
 		ref name.Reference
 		err error
 	)
 
-	ref, err = name.ParseReference(imageName)
+	if len(defaultRegistry) == 0 {
+		ref, err = name.ParseReference(image)
+	} else {
+		ref, err = name.ParseReference(image, name.WithDefaultRegistry(defaultRegistry))
+	}
 	if err != nil {
-		return checkImageNameParseErr(log, err)
+		return nil, err
 	}
 
-	if ref.Context().RegistryStr() == name.DefaultRegistry && rc.config.defaultRegistry != "" {
-		ref, err = name.ParseReference(path.Join(rc.config.defaultRegistry, imageName))
-		if err != nil {
-			return checkImageNameParseErr(log, err)
-		}
-	}
+	return ref, nil
+}
 
+func check(ref name.Reference, kc *keychain, registryTransport *http.Transport) (store.AvailabilityMode, error) {
 	var imgErr error
-	_ = wait.ExponentialBackoff(wait.Backoff{
-		Duration: time.Second,
-		Factor:   2,
-		Steps:    2,
-	}, func() (bool, error) {
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		defer cancel()
 
-		if kc != nil {
-			for i := 0; i < kc.size; i++ {
-				indexedKeychain := *kc
-				indexedKeychain.index = i
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
 
-				_, imgErr = remote.Head(ref, remote.WithAuthFromKeychain(&indexedKeychain), remote.WithTransport(rc.registryTransport),
-					remote.WithContext(ctx))
+	if kc != nil {
+		for i := 0; i < kc.size; i++ {
+			kc.index = i
 
-				if imgErr != nil {
-					continue
-				}
+			_, imgErr = remote.Head(ref, remote.WithAuthFromKeychain(kc), remote.WithTransport(registryTransport),
+				remote.WithContext(ctx))
 
-				if imgErr == nil || (!IsAuthnFail(imgErr) && !IsAuthzFail(imgErr)) {
-					break
-				}
+			if imgErr == nil || (!IsAuthnFail(imgErr) && !IsAuthzFail(imgErr)) {
+				break
 			}
-		} else {
-			_, imgErr = remote.Head(ref, remote.WithTransport(rc.registryTransport), remote.WithContext(ctx))
 		}
 
-		availMode = store.Available
-		if IsAbsent(imgErr) {
-			availMode = store.Absent
-		} else if IsAuthnFail(imgErr) {
-			availMode = store.AuthnFailure
-		} else if IsAuthzFail(imgErr) {
-			availMode = store.AuthzFailure
-		} else if IsOldRegistry(imgErr) {
-			availMode = store.Available
-		} else if imgErr != nil {
-			availMode = store.UnknownError
-		}
-
-		return availMode == store.Available, nil
-	})
-
-	if availMode != store.Available {
-		log.WithField("availability_mode", availMode.String()).Error(imgErr)
+		kc.index = 0
+	} else {
+		_, imgErr = remote.Head(ref, remote.WithTransport(registryTransport), remote.WithContext(ctx))
 	}
 
-	return
+	var availMode store.AvailabilityMode
+	if IsAbsent(imgErr) {
+		availMode = store.Absent
+	} else if IsAuthnFail(imgErr) {
+		availMode = store.AuthnFailure
+	} else if IsAuthzFail(imgErr) {
+		availMode = store.AuthzFailure
+	} else if IsOldRegistry(imgErr) {
+		availMode = store.Available
+	} else if imgErr != nil {
+		availMode = store.UnknownError
+	}
+
+	return availMode, imgErr
 }

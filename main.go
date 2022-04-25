@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -28,7 +29,7 @@ import (
 
 func main() {
 	imageCheckInterval := flag.Duration("check-interval", time.Minute, "image re-check interval")
-	ignoredImagesStr := flag.String("ignored-images", "", "comma-separated image names to ignore")
+	ignoredImagesStr := flag.String("ignored-images", "", "tilde-separated image regexes to ignore, each image will be checked against this list of regexes")
 	bindAddr := flag.String("bind-address", ":8080", "address:port to bind /metrics endpoint to")
 	insecureSkipVerify := flag.Bool("skip-registry-cert-verification", false, "whether to skip registries' certificate verification")
 	specificNamespace := flag.String("namespace", "", "inspect specific namespace instead of whole k8s cluster")
@@ -42,7 +43,7 @@ func main() {
 	})
 	logrus.AddHook(logging.NewPrometheusHook())
 
-	// set up signals so we handle the first shutdown signal gracefully
+	// set up signals, so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 
 	cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{}).ClientConfig()
@@ -64,11 +65,17 @@ func main() {
 	)
 	prometheus.MustRegister(liveTicksCounter)
 
+	var regexes []regexp.Regexp
+	regexStrings := strings.Split(*ignoredImagesStr, "~")
+	for _, regexStr := range regexStrings {
+		regexes = append(regexes, *regexp.MustCompile(regexStr))
+	}
+
 	registryChecker := registry_checker.NewRegistryChecker(
 		stopCh,
 		kubeClient,
 		*insecureSkipVerify,
-		strings.Split(*ignoredImagesStr, ","),
+		regexes,
 		*specificNamespace,
 		*defaultRegistry,
 	)

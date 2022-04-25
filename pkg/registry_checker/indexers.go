@@ -5,15 +5,16 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/flant/k8s-image-availability-exporter/pkg/store"
-	credentialprovider "github.com/vdemeester/k8s-pkg-credentialprovider"
-	credentialprovidersecrets "github.com/vdemeester/k8s-pkg-credentialprovider/secrets"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1beta "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/flant/k8s-image-availability-exporter/pkg/store"
+	credentialprovider "github.com/vdemeester/k8s-pkg-credentialprovider"
+	credentialprovidersecrets "github.com/vdemeester/k8s-pkg-credentialprovider/secrets"
 )
 
 const (
@@ -100,16 +101,16 @@ func extractPullSecretRefsFromServiceAccount(namespace string, spec corev1.Servi
 	return
 }
 
-func ExtractImages(obj interface{}) ([]string, error) {
+func ExtractImages(obj interface{}) []string {
 	switch typedObj := obj.(type) {
 	case *appsv1.Deployment:
-		return extractImagesFromContainers(typedObj.Spec.Template.Spec.Containers), nil
+		return extractImagesFromContainers(typedObj.Spec.Template.Spec.Containers)
 	case *appsv1.StatefulSet:
-		return extractImagesFromContainers(typedObj.Spec.Template.Spec.Containers), nil
+		return extractImagesFromContainers(typedObj.Spec.Template.Spec.Containers)
 	case *appsv1.DaemonSet:
-		return extractImagesFromContainers(typedObj.Spec.Template.Spec.Containers), nil
+		return extractImagesFromContainers(typedObj.Spec.Template.Spec.Containers)
 	case *batchv1beta.CronJob:
-		return extractImagesFromContainers(typedObj.Spec.JobTemplate.Spec.Template.Spec.Containers), nil
+		return extractImagesFromContainers(typedObj.Spec.JobTemplate.Spec.Template.Spec.Containers)
 	default:
 		panic(fmt.Errorf("%q not of types *appsv1.Deployment, *appsv1.StatefulSet, *appsv1.DaemonSet, *batchv1beta.CronJob", reflect.TypeOf(typedObj)))
 	}

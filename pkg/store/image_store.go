@@ -96,7 +96,7 @@ func (s *ImageStore) RunGC(gc gcFunc) {
 			s.imageSet[image] = imgInfo
 		}
 
-	}, 15*time.Minute)
+	}, 2*time.Minute)
 }
 
 func (s *ImageStore) ExtractMetrics() (ret []prometheus.Metric) {
@@ -141,9 +141,6 @@ func (s *ImageStore) ReconcileImage(imageName string, containerInfos []Container
 }
 
 func (s *ImageStore) Check() {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
 	var (
 		normalChecks = s.concurrentNormalChecks
 		errChecks    = s.concurrentErrorChecks
@@ -167,24 +164,33 @@ func (s *ImageStore) Check() {
 
 func (s *ImageStore) popCheckPush(errQ bool, count int) (pops int) {
 	for pops < count {
+		s.lock.Lock()
 		var imageRaw interface{}
 		if errQ {
 			imageRaw = s.errQueue.PopFront()
 		} else {
 			imageRaw = s.queue.PopFront()
 		}
-
+		pops++
 		image := imageRaw.(string)
+
+		_, ok := s.imageSet[image]
+		if !ok {
+			s.lock.Unlock()
+			continue
+		}
+		s.lock.Unlock()
 
 		availMode := s.check(image)
 
+		s.lock.Lock()
+
 		imageInfo, ok := s.imageSet[image]
 		if !ok {
+			s.lock.Unlock()
 			continue
 		}
-
 		imageInfo.AvailMode = availMode
-
 		s.imageSet[image] = imageInfo
 
 		if availMode == Available {
@@ -193,7 +199,7 @@ func (s *ImageStore) popCheckPush(errQ bool, count int) (pops int) {
 			s.errQueue.PushBack(image)
 		}
 
-		pops++
+		s.lock.Unlock()
 	}
 
 	return
