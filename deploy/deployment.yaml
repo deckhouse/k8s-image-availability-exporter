@@ -27,7 +27,7 @@ spec:
           ports:
             - containerPort: 8080
               name: http-metrics
-          image: registry-write.deckhouse.io/k8s-image-availability-exporter/k8s-image-availability-exporter:v0.2.1
+          image: registry-write.deckhouse.io/k8s-image-availability-exporter/k8s-image-availability-exporter:v0.3.0
           imagePullPolicy: IfNotPresent
           livenessProbe:
             httpGet:
