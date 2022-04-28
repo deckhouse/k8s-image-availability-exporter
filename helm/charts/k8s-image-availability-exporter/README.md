@@ -12,13 +12,13 @@ This chart bootstraps a [k8s-image-availability-exporter](https://github.com/fla
 
 To install the chart with the release name `my-release`:
 
-```console
-$ git clone https://github.com/flant/k8s-image-availability-exporter
-$ cd k8s-image-availability-exporter/helm
-$ helm install my-release k8s-image-availability-exporter
+```bash
+helm repo add flant_common_github https://charts.flant.com/common/github
+helm repo update
+helm install my-release flant_common_github/k8s-image-availability-exporter
 ```
 
-The command clones the repository and deploys k8s-image-availability-exporter on the Kubernetes cluster in the default configuration. The [configuration](#configuration) section lists the parameters that can be configured during installation.
+The command deploys k8s-image-availability-exporter on the Kubernetes cluster in the default configuration. The [configuration](#configuration) section lists the parameters that can be configured during installation.
 
 The default installation includes only the deployment, service, and rbac configuration.
 
@@ -26,8 +26,8 @@ The default installation includes only the deployment, service, and rbac configu
 
 To uninstall/delete the `my-release` deployment:
 
-```console
-$ helm delete my-release
+```bash
+helm delete my-release
 ```
 
 The command removes all the Kubernetes components associated with the chart and deletes the release.
@@ -52,14 +52,14 @@ The following tables list the configurable parameters of the k8s-image-availabil
 
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
 
-```console
-$ helm install my-release k8s-image-availability-exporter --set k8sImageAvailabilityExporter.replicas=2
+```bash
+helm install my-release k8s-image-availability-exporter --set k8sImageAvailabilityExporter.replicas=2
 ```
 
 Alternatively, one or more YAML files that specify the values for the above parameters can be provided while installing the chart. For example,
 
-```console
-$ helm install my-release k8s-image-availability-exporter -f values1.yaml,values2.yaml
+```bash
+helm install my-release k8s-image-availability-exporter -f values1.yaml,values2.yaml
 ```
 
 > **Tip**: You can use the default [values.yaml](values.yaml)
