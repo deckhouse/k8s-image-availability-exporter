@@ -11,6 +11,10 @@ k8sImageAvailabilityExporter:
 serviceMonitor:
   enabled: false
   interval: 15s
+  additional_labels: 
+    enabled: false
+    prometheus_service_monitor_selector: 
+      release: "serviceMonitorSelector_for_Prometheus"
 
 prometheusRule:
   enabled: false
