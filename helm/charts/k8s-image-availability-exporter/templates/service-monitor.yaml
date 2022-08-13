@@ -5,13 +5,13 @@ metadata:
   name: {{ template "k8s-image-availability-exporter.fullname" . }}
   labels:
     app: {{ template "k8s-image-availability-exporter.fullname" . }}
+    {{- if .Values.serviceMonitor.additional_labels.enabled }}
+    release: {{ .Values.serviceMonitor.additional_labels.prometheus_service_monitor_selector.release }}
+    {{- end }}
 spec:
   selector:
     matchLabels:
       app: {{ template "k8s-image-availability-exporter.fullname" . }}
-      {{- if .Values.serviceMonitor.additional_labels.enabled }}
-      release: {{ .Values.serviceMonitor.additional_labels.prometheus_service_monitor_selector.release }}
-      {{- end }}
   endpoints:
   - port: http
     interval: {{ .Values.serviceMonitor.interval }}
