@@ -66,9 +66,11 @@ func main() {
 	prometheus.MustRegister(liveTicksCounter)
 
 	var regexes []regexp.Regexp
-	regexStrings := strings.Split(*ignoredImagesStr, "~")
-	for _, regexStr := range regexStrings {
-		regexes = append(regexes, *regexp.MustCompile(regexStr))
+	if *ignoredImagesStr != "" {
+		regexStrings := strings.Split(*ignoredImagesStr, "~")
+		for _, regexStr := range regexStrings {
+			regexes = append(regexes, *regexp.MustCompile(regexStr))
+		}
 	}
 
 	registryChecker := registry_checker.NewRegistryChecker(
