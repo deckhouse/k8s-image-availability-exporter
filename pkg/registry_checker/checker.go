@@ -14,6 +14,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/sirupsen/logrus"
@@ -202,39 +203,39 @@ func (rc RegistryChecker) Tick() {
 func (rc *RegistryChecker) reconcile(obj interface{}) {
 	images := ExtractImages(obj)
 
-	imagesLoop:
-		for _, image := range images {
-			for _, ignoredImageRegex := range rc.ignoredImagesRegex {
-				if ignoredImageRegex.MatchString(image) {
-					continue imagesLoop
-				}
+imagesLoop:
+	for _, image := range images {
+		for _, ignoredImageRegex := range rc.ignoredImagesRegex {
+			if ignoredImageRegex.MatchString(image) {
+				continue imagesLoop
 			}
-
-			var skipObject bool
-
-			switch typedObj := obj.(type) {
-			case *appsv1.Deployment:
-				if typedObj.Status.Replicas == 0 {
-					skipObject = true
-				}
-			case *appsv1.StatefulSet:
-				if typedObj.Status.Replicas == 0 {
-					skipObject = true
-				}
-			case *appsv1.DaemonSet:
-				if typedObj.Status.CurrentNumberScheduled == 0 {
-					skipObject = true
-				}
-			}
-
-			if skipObject {
-				rc.imageStore.ReconcileImage(image, []store.ContainerInfo{})
-				continue
-			}
-
-			containerInfos := rc.controllerIndexers.GetContainerInfosForImage(image)
-			rc.imageStore.ReconcileImage(image, containerInfos)
 		}
+
+		var skipObject bool
+
+		switch typedObj := obj.(type) {
+		case *appsv1.Deployment:
+			if typedObj.Status.Replicas == 0 {
+				skipObject = true
+			}
+		case *appsv1.StatefulSet:
+			if typedObj.Status.Replicas == 0 {
+				skipObject = true
+			}
+		case *appsv1.DaemonSet:
+			if typedObj.Status.CurrentNumberScheduled == 0 {
+				skipObject = true
+			}
+		}
+
+		if skipObject {
+			rc.imageStore.ReconcileImage(image, []store.ContainerInfo{})
+			continue
+		}
+
+		containerInfos := rc.controllerIndexers.GetContainerInfosForImage(image)
+		rc.imageStore.ReconcileImage(image, containerInfos)
+	}
 }
 
 func (rc *RegistryChecker) reconcileUpdate(a, b interface{}) {
@@ -325,7 +326,7 @@ func check(ref name.Reference, kc *keychain, registryTransport *http.Transport) 
 
 		kc.index = 0
 	} else {
-		_, imgErr = remote.Head(ref, remote.WithTransport(registryTransport), remote.WithContext(ctx))
+		_, imgErr = remote.Head(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain), remote.WithTransport(registryTransport), remote.WithContext(ctx))
 	}
 
 	var availMode store.AvailabilityMode
