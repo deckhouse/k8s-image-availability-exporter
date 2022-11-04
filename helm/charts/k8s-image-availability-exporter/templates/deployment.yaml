@@ -53,4 +53,14 @@ spec:
         {{ if .Values.k8sImageAvailabilityExporter.resources }}
 {{ .Values.k8sImageAvailabilityExporter.resources | toYaml | indent 10}}
         {{ end }}
+        {{ if .Values.k8sImageAvailabilityExporter.dockerConfigSecret }}
+        volumeMounts:
+          - name: dockerconfig
+            mountPath: "/root/.docker/"
+      volumes:
+        - name: dockerconfig
+          secret:
+            secretName: {{ .Values.k8sImageAvailabilityExporter.dockerConfigSecret }}
+            optional: false
+        {{ end }}
       serviceAccountName: {{ template "k8s-image-availability-exporter.fullname" . }}

@@ -44,6 +44,7 @@ The following tables list the configurable parameters of the k8s-image-availabil
 | `k8sImageAvailabilityExporter.image.tag` | Tag to use for the k8s-image-availability-exporter deployment | `v0.1.13` |
 | `k8sImageAvailabilityExporter.replicas` | Number of instances to deploy for a k8s-image-availability-exporter deployment. | `1` |
 | `k8sImageAvailabilityExporter.resources` | Resource limits for k8s-image-availability-exporter | `{}` |
+| `k8sImageAvailabilityExporter.dockerConfigSecret` | Name of secret containing docker config.json | `` |
 | `serviceMonitor.enabled` | Create [Prometheus Operator](https://github.com/coreos/prometheus-operator) serviceMonitor resource | `false` |
 | `serviceMonitor.interval` | Scrape interval for serviceMonitor | `15s` |
 | `prometheusRule.enabled` | Create [Prometheus Operator](https://github.com/coreos/prometheus-operator) prometheusRule resource | `false` |
