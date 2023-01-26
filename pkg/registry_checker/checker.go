@@ -19,7 +19,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
-	"k8s.io/client-go/informers/batch/v1beta1"
+	batchv1informers "k8s.io/client-go/informers/batch/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 
 	"k8s.io/client-go/informers"
@@ -45,7 +45,7 @@ type RegistryChecker struct {
 	deploymentsInformer  appsv1informers.DeploymentInformer
 	statefulSetsInformer appsv1informers.StatefulSetInformer
 	daemonSetsInformer   appsv1informers.DaemonSetInformer
-	cronJobsInformer     v1beta1.CronJobInformer
+	cronJobsInformer     batchv1informers.CronJobInformer
 	secretsInformer      corev1informers.SecretInformer
 
 	controllerIndexers ControllerIndexers
@@ -82,7 +82,7 @@ func NewRegistryChecker(
 		deploymentsInformer:  informerFactory.Apps().V1().Deployments(),
 		statefulSetsInformer: informerFactory.Apps().V1().StatefulSets(),
 		daemonSetsInformer:   informerFactory.Apps().V1().DaemonSets(),
-		cronJobsInformer:     informerFactory.Batch().V1beta1().CronJobs(),
+		cronJobsInformer:     informerFactory.Batch().V1().CronJobs(),
 		secretsInformer:      informerFactory.Core().V1().Secrets(),
 
 		ignoredImagesRegex: ignoredImages,

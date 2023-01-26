@@ -6,7 +6,7 @@ import (
 	"reflect"
 
 	appsv1 "k8s.io/api/apps/v1"
-	batchv1beta "k8s.io/api/batch/v1beta1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -55,7 +55,7 @@ func GetImagesFromDaemonSet(obj interface{}) ([]string, error) {
 }
 
 func GetImagesFromCronJob(obj interface{}) ([]string, error) {
-	cronJob := obj.(*batchv1beta.CronJob)
+	cronJob := obj.(*batchv1.CronJob)
 
 	return extractImagesFromContainers(cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers), nil
 }
@@ -109,10 +109,10 @@ func ExtractImages(obj interface{}) []string {
 		return extractImagesFromContainers(typedObj.Spec.Template.Spec.Containers)
 	case *appsv1.DaemonSet:
 		return extractImagesFromContainers(typedObj.Spec.Template.Spec.Containers)
-	case *batchv1beta.CronJob:
+	case *batchv1.CronJob:
 		return extractImagesFromContainers(typedObj.Spec.JobTemplate.Spec.Template.Spec.Containers)
 	default:
-		panic(fmt.Errorf("%q not of types *appsv1.Deployment, *appsv1.StatefulSet, *appsv1.DaemonSet, *batchv1beta.CronJob", reflect.TypeOf(typedObj)))
+		panic(fmt.Errorf("%q not of types *appsv1.Deployment, *appsv1.StatefulSet, *appsv1.DaemonSet, *batchv1.CronJob", reflect.TypeOf(typedObj)))
 	}
 }
 
@@ -124,10 +124,10 @@ func ExtractContainerInfos(image string, obj interface{}) []store.ContainerInfo 
 		return extractContainerInfoFromContainers(image, typedObj.Namespace, "StatefulSet", typedObj.Name, typedObj.Spec.Template.Spec.Containers)
 	case *appsv1.DaemonSet:
 		return extractContainerInfoFromContainers(image, typedObj.Namespace, "DaemonSet", typedObj.Name, typedObj.Spec.Template.Spec.Containers)
-	case *batchv1beta.CronJob:
+	case *batchv1.CronJob:
 		return extractContainerInfoFromContainers(image, typedObj.Namespace, "CronJob", typedObj.Name, typedObj.Spec.JobTemplate.Spec.Template.Spec.Containers)
 	default:
-		panic(fmt.Errorf("%q not of types *appsv1.Deployment, *appsv1.StatefulSet, *appsv1.DaemonSet, *batchv1beta.CronJob", reflect.TypeOf(typedObj)))
+		panic(fmt.Errorf("%q not of types *appsv1.Deployment, *appsv1.StatefulSet, *appsv1.DaemonSet, *batchv1.CronJob", reflect.TypeOf(typedObj)))
 	}
 }
 
@@ -147,11 +147,11 @@ func ExtractPullSecretRefs(kubeClient *kubernetes.Clientset, obj interface{}) (r
 	case *appsv1.DaemonSet:
 		namespace = typedObj.Namespace
 		podSpec = typedObj.Spec.Template.Spec
-	case *batchv1beta.CronJob:
+	case *batchv1.CronJob:
 		namespace = typedObj.Namespace
 		podSpec = typedObj.Spec.JobTemplate.Spec.Template.Spec
 	default:
-		panic(fmt.Errorf("%q not of types *appsv1.Deployment, *appsv1.StatefulSet, *appsv1.DaemonSet, *batchv1beta.CronJob", reflect.TypeOf(typedObj)))
+		panic(fmt.Errorf("%q not of types *appsv1.Deployment, *appsv1.StatefulSet, *appsv1.DaemonSet, *batchv1.CronJob", reflect.TypeOf(typedObj)))
 	}
 
 	pullSecretRefs := extractPullSecretRefsFromPodSpec(namespace, podSpec)
