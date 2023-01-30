@@ -19,7 +19,15 @@ func (lp lazyProvider) Authorization() (*authn.AuthConfig, error) {
 	if !found || len(creds) < 1 {
 		return nil, fmt.Errorf("keychain returned no credentials for %q", lp.image)
 	}
-	authConfig := creds[lp.kc.index]
+
+	// FIXME: an ugly hack for an upstream bug
+	// https://github.com/google/go-containerregistry/issues/723
+	index := lp.kc.index
+	if lp.kc.index > len(creds) {
+		index = len(creds)
+	}
+
+	authConfig := creds[index]
 	return &authn.AuthConfig{
 		Username:      authConfig.Username,
 		Password:      authConfig.Password,
