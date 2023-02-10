@@ -31,8 +31,8 @@ func main() {
 	imageCheckInterval := flag.Duration("check-interval", time.Minute, "image re-check interval")
 	ignoredImagesStr := flag.String("ignored-images", "", "tilde-separated image regexes to ignore, each image will be checked against this list of regexes")
 	bindAddr := flag.String("bind-address", ":8080", "address:port to bind /metrics endpoint to")
+	namespaceLabels := flag.String("namespace-label", "", "namespace label for checks")
 	insecureSkipVerify := flag.Bool("skip-registry-cert-verification", false, "whether to skip registries' certificate verification")
-	specificNamespace := flag.String("namespace", "", "inspect specific namespace instead of whole k8s cluster")
 	defaultRegistry := flag.String("default-registry", "",
 		fmt.Sprintf("default registry to use in absence of a fully qualified image name, defaults to %q", name.DefaultRegistry))
 
@@ -78,8 +78,8 @@ func main() {
 		kubeClient,
 		*insecureSkipVerify,
 		regexes,
-		*specificNamespace,
 		*defaultRegistry,
+		*namespaceLabels,
 	)
 	prometheus.MustRegister(registryChecker)
 
