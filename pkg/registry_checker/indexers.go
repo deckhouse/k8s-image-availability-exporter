@@ -68,6 +68,10 @@ func namespaceIndexers(nsLabel string) cache.Indexers {
 		labeledNSIndexName: func(obj interface{}) ([]string, error) {
 			ns := obj.(*corev1.Namespace)
 
+			if len(nsLabel) == 0 {
+				return []string{ns.GetName()}, nil
+			}
+
 			labels := ns.GetLabels()
 			if len(labels) > 0 {
 				if _, ok := labels[nsLabel]; ok {
