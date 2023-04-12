@@ -56,11 +56,8 @@ func (ci ControllerIndexers) validCi(cis *controllerWithContainerInfos) bool {
 	}
 
 	nsList, _ := ci.namespaceIndexer.ByIndex(labeledNSIndexName, cis.Namespace)
-	if len(nsList) == 0 {
-		return false
-	}
 
-	return true
+	return len(nsList) != 0
 }
 
 func namespaceIndexers(nsLabel string) cache.Indexers {
