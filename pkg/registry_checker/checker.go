@@ -8,12 +8,12 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/sirupsen/logrus"
@@ -303,7 +303,6 @@ func check(ref name.Reference, kc authn.Keychain, registryTransport *http.Transp
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-
 
 	_, imgErr = remote.Head(ref, remote.WithAuthFromKeychain(kc), remote.WithTransport(registryTransport),
 		remote.WithContext(ctx))

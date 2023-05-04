@@ -279,7 +279,7 @@ func (ci ControllerIndexers) GetKeychainForImage(image string) authn.Keychain {
 	}
 
 	if len(dereferencedPullSecrets) == 0 {
-		return nil
+		return authn.DefaultKeychain
 	}
 
 	kc, err := kubeauth.NewFromPullSecrets(context.TODO(), dereferencedPullSecrets)
