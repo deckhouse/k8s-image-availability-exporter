@@ -96,7 +96,7 @@ func (s *ImageStore) RunGC(gc gcFunc) {
 			s.imageSet[image] = imgInfo
 		}
 
-	}, 2*time.Minute)
+	}, 5*time.Minute)
 }
 
 func (s *ImageStore) ExtractMetrics() (ret []prometheus.Metric) {
@@ -118,8 +118,6 @@ func (s *ImageStore) ReconcileImage(imageName string, containerInfos []Container
 	defer s.lock.Unlock()
 
 	if len(containerInfos) == 0 {
-		delete(s.imageSet, imageName)
-
 		return
 	}
 
