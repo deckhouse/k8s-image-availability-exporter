@@ -22,7 +22,7 @@ jobs:
   tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v3.5.2
       - uses: werf/actions/install@v1.2
       - name: Werf lint chart
         run: cd "$CHART_DIR" && werf helm lint
@@ -33,7 +33,7 @@ jobs:
     if: "github.event_name == 'push' && github.ref == 'refs/heads/master'"
     needs: tests
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v3.5.2
       - uses: werf/actions/install@v1.2
       - name: Package werf charts
         run: |
