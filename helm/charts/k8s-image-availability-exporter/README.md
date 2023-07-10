@@ -45,6 +45,7 @@ The following tables list the configurable parameters of the k8s-image-availabil
 | `k8sImageAvailabilityExporter.replicas` | Number of instances to deploy for a k8s-image-availability-exporter deployment. | `1` |
 | `k8sImageAvailabilityExporter.resources` | Resource limits for k8s-image-availability-exporter | `{}` |
 | `serviceMonitor.enabled` | Create [Prometheus Operator](https://github.com/coreos/prometheus-operator) serviceMonitor resource | `false` |
+| `serviceMonitor.additionalLabels` | Additional labels used by the Prometheus to select Service Monitors | `{}` |
 | `serviceMonitor.interval` | Scrape interval for serviceMonitor | `15s` |
 | `prometheusRule.enabled` | Create [Prometheus Operator](https://github.com/coreos/prometheus-operator) prometheusRule resource | `false` |
 | `prometheusRule.defaultGroupsEnabled` | Setup default alerts (works only if prometheusRule.enabled is set to true) | `true` |

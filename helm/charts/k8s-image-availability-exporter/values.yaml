@@ -7,9 +7,10 @@ k8sImageAvailabilityExporter:
   resources: {}
   args:
     - --bind-address=:8080
-  
+
 serviceMonitor:
   enabled: false
+  additionalLabels: {}
   interval: 15s
 
 prometheusRule:
