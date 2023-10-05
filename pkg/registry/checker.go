@@ -68,6 +68,7 @@ func NewChecker(
 	skipVerify bool,
 	plainHTTP bool,
 	caPths []string,
+	forceCheckDisabledControllerKinds []string,
 	ignoredImages []regexp.Regexp,
 	defaultRegistry string,
 	namespaceLabel string,
@@ -206,6 +207,8 @@ func NewChecker(
 	rc.controllerIndexers.cronJobIndexer = rc.cronJobsInformer.Informer().GetIndexer()
 
 	rc.controllerIndexers.secretIndexer = rc.secretsInformer.Informer().GetIndexer()
+
+	rc.controllerIndexers.forceCheckDisabledControllerKinds = forceCheckDisabledControllerKinds
 
 	go informerFactory.Start(stopCh)
 	logrus.Info("Waiting for cache sync")

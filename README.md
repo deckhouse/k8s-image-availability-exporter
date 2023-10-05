@@ -30,9 +30,9 @@ docker pull registry.deckhouse.io/k8s-image-availability-exporter/k8s-image-avai
 The helm chart is available on [artifacthub](https://artifacthub.io/packages/helm/k8s-image-availability-exporter/k8s-image-availability-exporter). Follow instructions on the page to install it.
 
 ### Prometheus integration
- 
+
 Here's how you can configure Prometheus or prometheus-operator to scrape metrics from `k8s-image-availability-exporter`.
- 
+
 #### Prometheus
 
 ```yaml
@@ -161,7 +161,7 @@ spec:
           in Deployment `{{ $labels.owner_name }}`
           in container `{{ $labels.container }}` in registry.
         summary: Image `{{ $labels.image }}` is unavailable.
-    
+
     - alert: StatefulSetImageUnavailable
       expr: |
         max by (namespace, statefulset, container, image) (
@@ -174,7 +174,7 @@ spec:
           in StatefulSet `{{ $labels.owner_name }}`
           in container `{{ $labels.container }}` in registry.
         summary: Image `{{ $labels.image }}` is unavailable in container registry.
-    
+
     - alert: DaemonSetImageUnavailable
       expr: |
         max by (namespace, daemonset, container, image) (
@@ -187,7 +187,7 @@ spec:
           in DaemonSet `{{ $labels.owner_name }}`
           in container `{{ $labels.container }}` in registry.
         summary: Image `{{ $labels.image }}` is unavailable in container registry.
-    
+
     - alert: CronJobImageUnavailable
       expr: |
         max by (namespace, cronjob, container, image) (
@@ -218,6 +218,8 @@ Usage of k8s-image-availability-exporter:
         image re-check interval (default 1m0s)
   -default-registry string
         default registry to use in absence of a fully qualified image name, defaults to "index.docker.io"
+  -force-check-disabled-controllers value
+        comma-separated list of controller kinds for which image is forcibly checked, even when workloads are disabled or suspended. Acceptable values include "Deployment", "StatefulSet", "DaemonSet", "Cronjob" or "*" for all kinds (this option is case-insensitive)
   -ignored-images string
         tilde-separated image regexes to ignore, each image will be checked against this list of regexes
   -namespace-label string
@@ -243,7 +245,7 @@ Each `<TYPE>` in the exporter's metrics name is replaced with the following valu
 
 * `deployment`
 * `statefulset`
-* `daemonset` 
+* `daemonset`
 * `cronjob`
 
 ## Compatibility

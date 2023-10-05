@@ -3,6 +3,8 @@ package registry
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/flant/k8s-image-availability-exporter/pkg/store"
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -21,13 +23,14 @@ const (
 )
 
 type ControllerIndexers struct {
-	namespaceIndexer      cache.Indexer
-	serviceAccountIndexer cache.Indexer
-	deploymentIndexer     cache.Indexer
-	statefulSetIndexer    cache.Indexer
-	daemonSetIndexer      cache.Indexer
-	cronJobIndexer        cache.Indexer
-	secretIndexer         cache.Indexer
+	namespaceIndexer                  cache.Indexer
+	serviceAccountIndexer             cache.Indexer
+	deploymentIndexer                 cache.Indexer
+	statefulSetIndexer                cache.Indexer
+	daemonSetIndexer                  cache.Indexer
+	cronJobIndexer                    cache.Indexer
+	secretIndexer                     cache.Indexer
+	forceCheckDisabledControllerKinds []string
 }
 
 type controllerWithContainerInfos struct {
@@ -51,7 +54,7 @@ var (
 )
 
 func (ci ControllerIndexers) validCi(cis *controllerWithContainerInfos) bool {
-	if !cis.enabled {
+	if !cis.enabled && !slices.Contains(ci.forceCheckDisabledControllerKinds, strings.ToLower(cis.controllerKind)) {
 		return false
 	}
 
