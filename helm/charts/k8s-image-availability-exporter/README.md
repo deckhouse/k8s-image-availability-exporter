@@ -4,6 +4,9 @@
 
 This chart bootstraps a [k8s-image-availability-exporter](https://github.com/flant/k8s-image-availability-exporter) deployment on a [Kubernetes](http://kubernetes.io) cluster using the [Helm](https://helm.sh) package manager.
 
+> [!WARNING]  
+> By default, k8s-iae has unconstrained access to **all** secrets in the cluster!
+
 ## Prerequisites
   - Kubernetes 1.12+
   - Helm 2+
@@ -39,6 +42,7 @@ The following tables list the configurable parameters of the k8s-image-availabil
 ### General
 | Parameter | Description | Default |
 | ----- | ----------- | ------ |
+| `k8sImageAvailabilityExporter.useSecretsForPrivateRepositories` | Give k8s-iae unconstrained access to all secrets in the cluster. This is necessary if there are images from private registries deployed in pods where the pull secret is not defined in `spec.imagePullSecrets` in plaintext but rather in an external secret. This setting only modifies the RBAC rules. | `true` |
 | `k8sImageAvailabilityExporter.image.pullPolicy` | Image pull policy to use for the k8s-image-availability-exporter deployment | `IfNotPresent` |
 | `k8sImageAvailabilityExporter.image.repository` | Repository to use for the k8s-image-availability-exporter deployment | `flant/k8s-image-availability-exporter` |
 | `k8sImageAvailabilityExporter.image.tag` | Tag to use for the k8s-image-availability-exporter deployment | `v0.1.13` |
