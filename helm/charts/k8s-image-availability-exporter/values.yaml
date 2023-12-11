@@ -5,6 +5,7 @@ k8sImageAvailabilityExporter:
     pullPolicy: IfNotPresent
   replicas: 1
   resources: {}
+  useSecretsForPrivateRepositories: true # Setting this to false will prevent k8s-iae having unconstrained cluster-wide secret access
   args:
     - --bind-address=:8080
   
