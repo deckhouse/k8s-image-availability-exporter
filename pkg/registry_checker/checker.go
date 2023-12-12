@@ -201,7 +201,7 @@ func NewRegistryChecker(
 	_, enumerr := kubeClient.CoreV1().Secrets(namespace).List(ctx, metav1.ListOptions{})
 	if enumerr != nil {
 		// Not add the secret indexer to automatic cache updater
-		logrus.Warn("Provided ServiceAccount does not seem to be able to list secrets. Image availability check for images in private registries not having spec.imagePullSecrets configured will fail!")
+		logrus.Warn("The provided ServiceAccount is not able to list secrets. The check for images in private registries requires 'spec.imagePullSecrets' to be configured correctly.")
 	} else {
 		rc.controllerIndexers.secretIndexer = rc.secretsInformer.Informer().GetIndexer()
 	}
