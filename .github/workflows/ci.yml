@@ -19,7 +19,7 @@ jobs:
       with:
         go-version: '1.19'
 
-    - uses: actions/checkout@v3.5.2
+    - uses: actions/checkout@v4.1.1
 
     - name: Test With Coverage
       run: go test -v -race  -coverprofile=coverage.txt -covermode=atomic ./...
@@ -41,7 +41,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v3.5.2
+      - uses: actions/checkout@v4.1.1
       # Login against a Docker registry except on PR
       # https://github.com/docker/login-action
       - name: Log into registry ${{ env.REGISTRY }}
