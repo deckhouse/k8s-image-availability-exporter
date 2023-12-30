@@ -29,7 +29,7 @@ jobs:
         files: coverage.txt
 
     - name: golangci-lint
-      uses: golangci/golangci-lint-action@v3.4.0
+      uses: golangci/golangci-lint-action@v3.7.0
       with:
         args: --timeout=5m
         # since go test already does it in a previous step
