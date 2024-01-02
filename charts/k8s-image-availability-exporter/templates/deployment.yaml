@@ -39,6 +39,8 @@ spec:
           name: http
         image: {{ .Values.k8sImageAvailabilityExporter.image.repository }}:{{ .Values.image.tag | default (printf "v%s" .Chart.AppVersion) }}"
         imagePullPolicy: {{ .Values.k8sImageAvailabilityExporter.image.imagePullPolicy }}
+        securityContext:
+          {{ - toYaml .Values.securityContext | nindent 12 }}
         livenessProbe:
           httpGet:
             path: /healthz
@@ -54,3 +56,5 @@ spec:
 {{ .Values.k8sImageAvailabilityExporter.resources | toYaml | indent 10}}
         {{ end }}
       serviceAccountName: {{ template "k8s-image-availability-exporter.fullname" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}

@@ -1,6 +1,6 @@
 # k8s-image-availability-exporter
 
-![Version: 0.6.0](https://img.shields.io/badge/Version-0.6.0-informational?style=flat-square) ![AppVersion: v0.5.1](https://img.shields.io/badge/AppVersion-v0.5.1-informational?style=flat-square)
+![Version: 0.7.0](https://img.shields.io/badge/Version-0.7.0-informational?style=flat-square) ![AppVersion: v0.5.1](https://img.shields.io/badge/AppVersion-v0.5.1-informational?style=flat-square)
 
 Application for monitoring the cluster workloads image presence in a container registry.
 
@@ -27,6 +27,8 @@ This chart bootstraps a [k8s-image-availability-exporter](https://github.com/fla
 | prometheusRule.enabled | bool | `false` | Create [Prometheus Operator](https://github.com/coreos/prometheus-operator) prometheusRule resource |
 | prometheusRule.defaultGroupsEnabled | bool | `true` | Setup default alerts (works only if prometheusRule.enabled is set to true) |
 | prometheusRule.additionalGroups | list | `[]` | Additional PrometheusRule groups |
+| podSecurityContext | object | `{}` | Pod [security context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod). See the [API reference](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#security-context) for details. |
+| securityContext | object | `{}` | Container [security context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container). See the [API reference](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#security-context-1) for details. |
 
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
 
