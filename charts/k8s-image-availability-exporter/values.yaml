@@ -83,10 +83,61 @@ resources: {}
   #   memory: 128Mi
 
 serviceMonitor:
-  # -- Create [Prometheus Operator](https://github.com/coreos/prometheus-operator) serviceMonitor resource
+  # -- Enable Prometheus ServiceMonitor.
+  # See the [documentation](https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/design.md#servicemonitor) and the [API reference](https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#servicemonitor) for details.
   enabled: false
-  # -- Scrape interval for serviceMonitor
+
+  # -- Namespace where the ServiceMonitor resource should be deployed.
+  # @default -- Release namespace.
+  namespace: ""
+
+  # -- (duration) Prometheus scrape interval.
   interval: 15s
+
+  # -- (duration) Prometheus scrape timeout.
+  scrapeTimeout:
+
+  # -- Labels to be added to the ServiceMonitor.
+  ## ref: https://github.com/coreos/prometheus-operator/blob/master/Documentation/api.md#prometheusspec
+  labels: {}
+
+  # -- Annotations to be added to the ServiceMonitor.
+  ## ref: https://github.com/coreos/prometheus-operator/blob/master/Documentation/api.md#prometheusspec
+  annotations: {}
+
+  # -- HTTP scheme to use for scraping.
+  # Can be used with `tlsConfig` for example if using istio mTLS.
+  scheme: ""
+
+  # -- HTTP path to scrape for metrics.
+  path: /metrics
+
+  # -- TLS configuration to use when scraping the endpoint.
+  # For example if using istio mTLS.
+  ## Of type: https://github.com/coreos/prometheus-operator/blob/master/Documentation/api.md#tlsconfig
+  tlsConfig: {}
+
+  # -- HonorLabels chooses the metric's labels on collisions with target labels.
+  honorLabels: false
+
+  # -- Prometheus scrape metric relabel configs
+  # to apply to samples before ingestion.
+  ## [Metric Relabeling](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#metric_relabel_configs)
+  metricRelabelings: []
+  # - action: keep
+  #   regex: 'kube_(daemonset|deployment|pod|namespace|node|statefulset).+'
+  #   sourceLabels: [__name__]
+
+  # -- Relabel configs to apply
+  # to samples before ingestion.
+  ## [Relabeling](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config)
+  relabelings: []
+  # - sourceLabels: [__meta_kubernetes_pod_node_name]
+  #   separator: ;
+  #   regex: ^(.*)$
+  #   targetLabel: nodename
+  #   replacement: $1
+  #   action: replace
 
 prometheusRule:
   # -- Create [Prometheus Operator](https://github.com/coreos/prometheus-operator) prometheusRule resource

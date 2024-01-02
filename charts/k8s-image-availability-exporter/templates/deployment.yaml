@@ -45,10 +45,10 @@ spec:
         ports:
         - containerPort: 8080
           name: http
-        image: {{ .Values.k8sImageAvailabilityExporter.image.repository }}:{{ .Values.image.tag | default (printf "v%s" .Chart.AppVersion) }}"
+        image: {{ .Values.k8sImageAvailabilityExporter.image.repository }}:{{ .Values.k8sImageAvailabilityExporter.image.tag | default (printf "v%s" .Chart.AppVersion) }}"
         imagePullPolicy: {{ .Values.k8sImageAvailabilityExporter.image.imagePullPolicy }}
         securityContext:
-          {{ - toYaml .Values.securityContext | nindent 12 }}
+          {{- toYaml .Values.securityContext | nindent 12 }}
         livenessProbe:
           httpGet:
             path: /healthz
