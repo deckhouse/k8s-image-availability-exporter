@@ -1,6 +1,6 @@
 module github.com/flant/k8s-image-availability-exporter
 
-go 1.19
+go 1.21
 
 require (
 	github.com/gammazero/deque v0.1.0

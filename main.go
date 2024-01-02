@@ -11,7 +11,7 @@ import (
 
 	"github.com/flant/k8s-image-availability-exporter/pkg/handlers"
 	"github.com/flant/k8s-image-availability-exporter/pkg/logging"
-	"github.com/flant/k8s-image-availability-exporter/pkg/registry_checker"
+	"github.com/flant/k8s-image-availability-exporter/pkg/registry"
 
 	"github.com/google/go-containerregistry/pkg/name"
 
@@ -73,7 +73,7 @@ func main() {
 		}
 	}
 
-	registryChecker := registry_checker.NewRegistryChecker(
+	registryChecker := registry.NewChecker(
 		stopCh,
 		kubeClient,
 		*insecureSkipVerify,

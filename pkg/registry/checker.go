@@ -1,4 +1,4 @@
-package registry_checker
+package registry
 
 import (
 	"context"
@@ -38,7 +38,7 @@ type registryCheckerConfig struct {
 	defaultRegistry string
 }
 
-type RegistryChecker struct {
+type Checker struct {
 	imageStore *store.ImageStore
 
 	serviceAccountInformer corev1informers.ServiceAccountInformer
@@ -60,14 +60,14 @@ type RegistryChecker struct {
 	config registryCheckerConfig
 }
 
-func NewRegistryChecker(
+func NewChecker(
 	stopCh <-chan struct{},
 	kubeClient *kubernetes.Clientset,
 	skipVerify bool,
 	ignoredImages []regexp.Regexp,
 	defaultRegistry string,
 	namespaceLabel string,
-) *RegistryChecker {
+) *Checker {
 
 	informerFactory := informers.NewSharedInformerFactory(kubeClient, time.Hour)
 
@@ -76,7 +76,7 @@ func NewRegistryChecker(
 		customTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 
-	rc := &RegistryChecker{
+	rc := &Checker{
 		serviceAccountInformer: informerFactory.Core().V1().ServiceAccounts(),
 		namespacesInformer:     informerFactory.Core().V1().Namespaces(),
 		deploymentsInformer:    informerFactory.Apps().V1().Deployments(),
@@ -206,7 +206,7 @@ func NewRegistryChecker(
 }
 
 // Collect implements prometheus.Collector.
-func (rc *RegistryChecker) Collect(ch chan<- prometheus.Metric) {
+func (rc *Checker) Collect(ch chan<- prometheus.Metric) {
 	metrics := rc.imageStore.ExtractMetrics()
 
 	for _, m := range metrics {
@@ -215,13 +215,13 @@ func (rc *RegistryChecker) Collect(ch chan<- prometheus.Metric) {
 }
 
 // Describe implements prometheus.Collector.
-func (rc *RegistryChecker) Describe(_ chan<- *prometheus.Desc) {}
+func (rc *Checker) Describe(_ chan<- *prometheus.Desc) {}
 
-func (rc *RegistryChecker) Tick() {
+func (rc *Checker) Tick() {
 	rc.imageStore.Check()
 }
 
-func (rc *RegistryChecker) reconcile(obj interface{}) {
+func (rc *Checker) reconcile(obj interface{}) {
 	cis := getCis(obj)
 
 imagesLoop:
@@ -238,14 +238,14 @@ imagesLoop:
 	}
 }
 
-func (rc *RegistryChecker) Check(imageName string) store.AvailabilityMode {
+func (rc *Checker) Check(imageName string) store.AvailabilityMode {
 	keyChain := rc.controllerIndexers.GetKeychainForImage(imageName)
 
 	log := logrus.WithField("image_name", imageName)
 	return rc.checkImageAvailability(log, imageName, keyChain)
 }
 
-func (rc *RegistryChecker) checkImageAvailability(log *logrus.Entry, imageName string, kc authn.Keychain) (availMode store.AvailabilityMode) {
+func (rc *Checker) checkImageAvailability(log *logrus.Entry, imageName string, kc authn.Keychain) (availMode store.AvailabilityMode) {
 	ref, err := parseImageName(imageName, rc.config.defaultRegistry)
 	if err != nil {
 		return checkImageNameParseErr(log, err)

@@ -13,35 +13,54 @@ env:
   IMAGE_NAME: k8s-image-availability-exporter/k8s-image-availability-exporter
 jobs:
   test:
+    name: Test
     runs-on: ubuntu-latest
+
     steps:
     - uses: actions/setup-go@v5
       with:
-        go-version: '1.19'
+        go-version: '1.21'
 
     - uses: actions/checkout@v4.1.1
 
     - name: Test With Coverage
       run: go test -v -race  -coverprofile=coverage.txt -covermode=atomic ./...
+
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3.1.4
       with:
         files: coverage.txt
 
-    - name: golangci-lint
-      uses: golangci/golangci-lint-action@v3.7.0
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4.1.1
+
+    - uses: actions/setup-go@v5
       with:
-        args: --timeout=5m
-        # since go test already does it in a previous step
-        skip-pkg-cache: true
+        go-version: '1.21'
+
+    - name: Download golangci-lint
+      run: make bin/golangci-lint
+
+    - name: Lint
+      run: make lint
+
   build:
+    name: Build
+
     runs-on: ubuntu-latest
     needs: test
+
     permissions:
       contents: read
       packages: write
+
     steps:
       - uses: actions/checkout@v4.1.1
+
       # Login against a Docker registry except on PR
       # https://github.com/docker/login-action
       - name: Log into registry ${{ env.REGISTRY }}
@@ -51,6 +70,7 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ secrets.DECKHOUSE_REGISTRY_USER }}
           password: ${{ secrets.DECKHOUSE_REGISTRY_PASSWORD }}
+
       # Extract metadata (tags, labels) for Docker
       # https://github.com/docker/metadata-action
       - name: Extract Docker metadata
@@ -58,6 +78,7 @@ jobs:
         uses: docker/metadata-action@v5.4.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
       - name: Build and push Docker image

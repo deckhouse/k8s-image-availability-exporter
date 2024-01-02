@@ -1,4 +1,4 @@
-package registry_checker
+package registry
 
 import (
 	"context"
