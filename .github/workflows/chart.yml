@@ -1,46 +1,35 @@
-name: chart
-
-env:
-  CHARTMUSEUM_URL: "https://charts.flant.com/api/common/github/charts"
-  CHART_DIR: "helm/charts/k8s-image-availability-exporter"
+name: Release Charts
 
 on:
   push:
-    tags:
-    - v*
     branches:
-    - master
-  pull_request:
-    branches:
-    - master
-
-defaults:
-  run:
-    shell: "bash -l -eo pipefail {0}"
+    - main
+    paths:
+    - 'charts/**'
 
 jobs:
-  tests:
+  chart-release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.1.1
-      - uses: werf/actions/install@v1.2
-      - name: Werf lint chart
-        run: cd "$CHART_DIR" && werf helm lint
-      - name: Werf render chart
-        run: cd "$CHART_DIR" &&  werf helm template .
-  publish-charts:
-    runs-on: ubuntu-latest
-    if: "github.event_name == 'push' && github.ref == 'refs/heads/master'"
-    needs: tests
-    steps:
-      - uses: actions/checkout@v4.1.1
-      - uses: werf/actions/install@v1.2
-      - name: Package werf charts
-        run: |
-          mkdir -p .packages
-          werf helm package "$CHART_DIR" -d .packages
-      - name: Publish packaged werf charts
-        run: |
-          while read package; do
-            curl -sSL --post301 --data-binary "@.packages/$package" --user "${{ secrets.CHARTMUSEUM_BASIC_AUTH_USER }}:${{ secrets.CHARTMUSEUM_BASIC_AUTH_PASS }}" "$CHARTMUSEUM_URL"
-          done < <(find .packages -mindepth 1 -maxdepth 1 -type f -name '*.tgz' -exec sh -c 'basename "$0"' '{}' \;)
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+
+    - name: Configure Git
+      run: |
+        git config user.name "$GITHUB_ACTOR"
+        git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+    - name: Install Helm
+      uses: azure/setup-helm@v1
+      with:
+        version: v3.7.1
+
+    - name: Run chart-releaser
+      uses: helm/chart-releaser-action@v1.3.0
+      with:
+        charts_dir: charts
+        config: charts/cr.yaml
+      env:
+        CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"

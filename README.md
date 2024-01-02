@@ -14,9 +14,17 @@ Receiving alerts when container images related to running Kubernetes controllers
 
 ## Deploying
 
-After cloning this repo:
+### Container image
 
-`kubectl apply -f deploy/`
+Ready-to-use container images are available in the Deckhouse registry:
+
+```bash
+docker pull registry.deckhouse.io/k8s-image-availability-exporter/k8s-image-availability-exporter:latest
+```
+
+### Helm Chart
+
+The helm chart is available on [artifacthub](https://artifacthub.io/packages/helm/k8s-image-availability-exporter/k8s-image-availability-exporter). Follow instructions on the page to install it.
 
 ### Prometheus integration
  
@@ -195,13 +203,21 @@ spec:
 
 ### Command-line options
 
-* `--bind-address` — IP address and port to bind to.
-  * Default: `:8080`
-* `--check-interval` — interval for checking absent images. In Go `time` format.
-  * Default: `5m`
-* `--ignored-images` — comma-separated list of images to ignore while checking absent images.
-* `--skip-registry-cert-verification` — whether to skip registries' certificate verification.
-* `--namespace` — inspect specific namespace instead of whole k8s cluster.
+```
+Usage of k8s-image-availability-exporter:
+  -bind-address string
+        address:port to bind /metrics endpoint to (default ":8080")
+  -check-interval duration
+        image re-check interval (default 1m0s)
+  -default-registry string
+        default registry to use in absence of a fully qualified image name, defaults to "index.docker.io"
+  -ignored-images string
+        tilde-separated image regexes to ignore, each image will be checked against this list of regexes
+  -namespace-label string
+        namespace label for checks
+  -skip-registry-cert-verification
+        whether to skip registries' certificate verification
+```
 
 ## Metrics
 

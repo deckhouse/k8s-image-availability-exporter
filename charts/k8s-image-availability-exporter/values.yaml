@@ -1,0 +1,29 @@
+k8sImageAvailabilityExporter:
+  image:
+    # -- Repository to use for the k8s-image-availability-exporter deployment
+    repository: registry.deckhouse.io/k8s-image-availability-exporter/k8s-image-availability-exporter
+    # -- Image tag override for the default value (chart appVersion)
+    tag: ""
+    # -- Image pull policy to use for the k8s-image-availability-exporter deployment
+    pullPolicy: IfNotPresent
+  # -- Number of instances to deploy for a k8s-image-availability-exporter deployment
+  replicas: 1
+  # -- Resource limits for k8s-image-availability-exporter
+  resources: {}
+  # -- Command line arguments for the exporter
+  args:
+    - --bind-address=:8080
+
+serviceMonitor:
+  # -- Create [Prometheus Operator](https://github.com/coreos/prometheus-operator) serviceMonitor resource
+  enabled: false
+  # -- Scrape interval for serviceMonitor
+  interval: 15s
+
+prometheusRule:
+  # -- Create [Prometheus Operator](https://github.com/coreos/prometheus-operator) prometheusRule resource
+  enabled: false
+  # -- Setup default alerts (works only if prometheusRule.enabled is set to true)
+  defaultGroupsEnabled: true
+  # -- Additional PrometheusRule groups
+  additionalGroups: []
