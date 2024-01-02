@@ -10,7 +10,12 @@ metadata:
     app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
     app.kubernetes.io/component: monitoring
 spec:
-  replicas: {{ .Values.k8sImageAvailabilityExporter.replicas }}
+  replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  {{- with .Values.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     matchLabels:
       app: {{ template "k8s-image-availability-exporter.fullname" . }}
@@ -19,6 +24,9 @@ spec:
       labels:
         app: {{ template "k8s-image-availability-exporter.fullname" . }}
     spec:
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . | quote }}
+      {{- end }}
       containers:
       - name: k8s-image-availability-exporter
         {{- if .Values.k8sImageAvailabilityExporter.args }}
@@ -52,9 +60,23 @@ spec:
             port: http
             scheme: HTTP
         resources:
-        {{ if .Values.k8sImageAvailabilityExporter.resources }}
-{{ .Values.k8sImageAvailabilityExporter.resources | toYaml | indent 10}}
-        {{ end }}
+          {{- toYaml .Values.resources | nindent 12 }}
       serviceAccountName: {{ template "k8s-image-availability-exporter.fullname" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
