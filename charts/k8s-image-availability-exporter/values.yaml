@@ -6,27 +6,12 @@ k8sImageAvailabilityExporter:
     tag: ""
     # -- Image pull policy to use for the k8s-image-availability-exporter deployment
     pullPolicy: IfNotPresent
-  # -- Number of instances to deploy for a k8s-image-availability-exporter deployment
-  replicas: 1
-  # -- Resource limits for k8s-image-availability-exporter
-  resources: {}
   # -- Command line arguments for the exporter
   args:
     - --bind-address=:8080
 
-serviceMonitor:
-  # -- Create [Prometheus Operator](https://github.com/coreos/prometheus-operator) serviceMonitor resource
-  enabled: false
-  # -- Scrape interval for serviceMonitor
-  interval: 15s
-
-prometheusRule:
-  # -- Create [Prometheus Operator](https://github.com/coreos/prometheus-operator) prometheusRule resource
-  enabled: false
-  # -- Setup default alerts (works only if prometheusRule.enabled is set to true)
-  defaultGroupsEnabled: true
-  # -- Additional PrometheusRule groups
-  additionalGroups: []
+# -- Number of replicas (pods) to launch.
+replicaCount: 1
 
 # -- Pod [security context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod).
 # See the [API reference](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#security-context) for details.
@@ -42,3 +27,71 @@ securityContext: {}
   # readOnlyRootFilesystem: true
   # runAsNonRoot: true
   # runAsUser: 1000
+
+# -- [Node selector](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector) configuration.
+nodeSelector: {}
+
+# -- [Tolerations](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/) for node taints.
+# See the [API reference](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#scheduling) for details.
+tolerations: []
+
+# -- [Affinity](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity) configuration.
+# See the [API reference](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#scheduling) for details.
+affinity: {}
+
+# -- [TopologySpreadConstraints](https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/) configuration.
+# See the [API reference](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#scheduling) for details.
+topologySpreadConstraints: []
+
+# -- Deployment [strategy](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy) configuration.
+strategy: {}
+  # rollingUpdate:
+  #   maxUnavailable: 1
+# type: RollingUpdate
+
+# -- Define the [count of deployment revisions](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#clean-up-policy) to be kept.
+# May be set to 0 in case of GitOps deployment approach.
+revisionHistoryLimit: 10
+
+podDisruptionBudget:
+  # -- Enable a [pod distruption budget](https://kubernetes.io/docs/tasks/run-application/configure-pdb/) to help dealing with [disruptions](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/).
+  # It is **highly recommended** for webhooks as disruptions can prevent launching new pods.
+  enabled: false
+
+  # -- (int/percentage) Number or percentage of pods that must remain available.
+  minAvailable:
+
+  # -- (int/percentage) Number or percentage of pods that can be unavailable.
+  maxUnavailable:
+
+# -- Specify a priority class name to set [pod priority](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#pod-priority).
+priorityClassName: ""
+
+# -- Container resource [requests and limits](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/).
+# See the [API reference](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#resources) for details.
+# @default -- No requests or limits.
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+serviceMonitor:
+  # -- Create [Prometheus Operator](https://github.com/coreos/prometheus-operator) serviceMonitor resource
+  enabled: false
+  # -- Scrape interval for serviceMonitor
+  interval: 15s
+
+prometheusRule:
+  # -- Create [Prometheus Operator](https://github.com/coreos/prometheus-operator) prometheusRule resource
+  enabled: false
+  # -- Setup default alerts (works only if prometheusRule.enabled is set to true)
+  defaultGroupsEnabled: true
+  # -- Additional PrometheusRule groups
+  additionalGroups: []
