@@ -1,6 +1,6 @@
 # k8s-image-availability-exporter
 
-![Version: 0.8.0](https://img.shields.io/badge/Version-0.8.0-informational?style=flat-square) ![AppVersion: v0.5.1](https://img.shields.io/badge/AppVersion-v0.5.1-informational?style=flat-square)
+![Version: 0.9.0](https://img.shields.io/badge/Version-0.9.0-informational?style=flat-square) ![AppVersion: v0.5.1](https://img.shields.io/badge/AppVersion-v0.5.1-informational?style=flat-square)
 
 Application for monitoring the cluster workloads image presence in a container registry.
 
@@ -11,6 +11,12 @@ Kubernetes: `>=1.14.0-0`
 ## Introduction
 
 This chart bootstraps a [k8s-image-availability-exporter](https://github.com/flant/k8s-image-availability-exporter) deployment on a [Kubernetes](http://kubernetes.io) cluster using the [Helm](https://helm.sh) package manager.
+
+## Maintainers
+
+| Name | Email | Url |
+| ---- | ------ | --- |
+| nabokihms | <max.nabokih@gmail.com> |  |
 
 ## Values
 
@@ -34,8 +40,18 @@ This chart bootstraps a [k8s-image-availability-exporter](https://github.com/fla
 | podDisruptionBudget.maxUnavailable | int/percentage | `nil` | Number or percentage of pods that can be unavailable. |
 | priorityClassName | string | `""` | Specify a priority class name to set [pod priority](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#pod-priority). |
 | resources | object | No requests or limits. | Container resource [requests and limits](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/). See the [API reference](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#resources) for details. |
-| serviceMonitor.enabled | bool | `false` | Create [Prometheus Operator](https://github.com/coreos/prometheus-operator) serviceMonitor resource |
-| serviceMonitor.interval | string | `"15s"` | Scrape interval for serviceMonitor |
+| serviceMonitor.enabled | bool | `false` | Enable Prometheus ServiceMonitor. See the [documentation](https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/design.md#servicemonitor) and the [API reference](https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#servicemonitor) for details. |
+| serviceMonitor.namespace | string | Release namespace. | Namespace where the ServiceMonitor resource should be deployed. |
+| serviceMonitor.interval | duration | `"15s"` | Prometheus scrape interval. |
+| serviceMonitor.scrapeTimeout | duration | `nil` | Prometheus scrape timeout. |
+| serviceMonitor.labels | object | `{}` | Labels to be added to the ServiceMonitor. # ref: https://github.com/coreos/prometheus-operator/blob/master/Documentation/api.md#prometheusspec |
+| serviceMonitor.annotations | object | `{}` | Annotations to be added to the ServiceMonitor. # ref: https://github.com/coreos/prometheus-operator/blob/master/Documentation/api.md#prometheusspec |
+| serviceMonitor.scheme | string | `""` | HTTP scheme to use for scraping. Can be used with `tlsConfig` for example if using istio mTLS. |
+| serviceMonitor.path | string | `"/metrics"` | HTTP path to scrape for metrics. |
+| serviceMonitor.tlsConfig | object | `{}` | TLS configuration to use when scraping the endpoint. For example if using istio mTLS. # Of type: https://github.com/coreos/prometheus-operator/blob/master/Documentation/api.md#tlsconfig |
+| serviceMonitor.honorLabels | bool | `false` | HonorLabels chooses the metric's labels on collisions with target labels. |
+| serviceMonitor.metricRelabelings | list | `[]` | Prometheus scrape metric relabel configs to apply to samples before ingestion. # [Metric Relabeling](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#metric_relabel_configs) |
+| serviceMonitor.relabelings | list | `[]` | Relabel configs to apply to samples before ingestion. # [Relabeling](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#relabel_config) |
 | prometheusRule.enabled | bool | `false` | Create [Prometheus Operator](https://github.com/coreos/prometheus-operator) prometheusRule resource |
 | prometheusRule.defaultGroupsEnabled | bool | `true` | Setup default alerts (works only if prometheusRule.enabled is set to true) |
 | prometheusRule.additionalGroups | list | `[]` | Additional PrometheusRule groups |
