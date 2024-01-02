@@ -88,3 +88,43 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  chart:
+    name: Chart
+
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Set up Helm
+      uses: azure/setup-helm@v3.5
+      with:
+        version: v3.10.3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+
+    - name: Set up chart-testing
+      uses: helm/chart-testing-action@v2.3.1
+
+    - name: Lint
+      run: ct lint
+
+    - name: Check generated docs
+      run: |
+        make docs
+        test "$(git diff --name-only)" == "" \
+        || ( printf >&2 "\nREADME files are not up to date (run 'make docs'), differences:\n\n%s\n\n" "$(git diff)" ; exit 1 ; )
+
+    - name: Detect changes
+      id: changes
+      run: |
+        changed=$(ct list-changed)
+        if [[ -n "$changed" ]]; then
+          echo "changed=true" >> $GITHUB_OUTPUT
+        fi
