@@ -1,5 +1,8 @@
 # k8s-image-availability-exporter
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/flant/k8s-image-availability-exporter.svg)](https://pkg.go.dev/github.com/flant/k8s-image-availability-exporter)
+[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/k8s-image-availability-exporter)](https://artifacthub.io/packages/search?repo=k8s-image-availability-exporter)
+
 k8s-image-availability-exporter (or *k8s-iae* for short) is a Prometheus exporter that warns you proactively about images that are defined in Kubernetes objects (e.g., an `image` field in the Deployment) but are not available in the container registry (such as Docker Registry, etc.).
 
 Receiving alerts when container images related to running Kubernetes controllers are missing helps you to solve the problem before it manifests itself. For more details on the reasons behind k8s-iae and how it works, please read [this article](https://medium.com/flant-com/prometheus-exporter-to-check-kubernetes-images-availability-26c306c44c08).
