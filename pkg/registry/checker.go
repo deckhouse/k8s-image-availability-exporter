@@ -36,6 +36,7 @@ const (
 
 type registryCheckerConfig struct {
 	defaultRegistry string
+	plainHTTP       bool
 }
 
 type Checker struct {
@@ -64,6 +65,7 @@ func NewChecker(
 	stopCh <-chan struct{},
 	kubeClient *kubernetes.Clientset,
 	skipVerify bool,
+	plainHTTP bool,
 	ignoredImages []regexp.Regexp,
 	defaultRegistry string,
 	namespaceLabel string,
@@ -93,6 +95,7 @@ func NewChecker(
 
 		config: registryCheckerConfig{
 			defaultRegistry: defaultRegistry,
+			plainHTTP:       plainHTTP,
 		},
 	}
 
@@ -246,7 +249,7 @@ func (rc *Checker) Check(imageName string) store.AvailabilityMode {
 }
 
 func (rc *Checker) checkImageAvailability(log *logrus.Entry, imageName string, kc authn.Keychain) (availMode store.AvailabilityMode) {
-	ref, err := parseImageName(imageName, rc.config.defaultRegistry)
+	ref, err := parseImageName(imageName, rc.config.defaultRegistry, rc.config.plainHTTP)
 	if err != nil {
 		return checkImageNameParseErr(log, err)
 	}
@@ -280,17 +283,24 @@ func checkImageNameParseErr(log *logrus.Entry, err error) store.AvailabilityMode
 	return store.UnknownError
 }
 
-func parseImageName(image string, defaultRegistry string) (name.Reference, error) {
+func parseImageName(image string, defaultRegistry string, plainHTTP bool) (name.Reference, error) {
 	var (
 		ref name.Reference
 		err error
 	)
 
-	if len(defaultRegistry) == 0 {
-		ref, err = name.ParseReference(image)
-	} else {
-		ref, err = name.ParseReference(image, name.WithDefaultRegistry(defaultRegistry))
+	opts := make([]name.Option, 0)
+	// Fallback to http scheme by default. See:
+	//  go-containerregistry https://github.com/jonjohnsonjr/go-containerregistry/blob/2a0d58f7c5f77f2a03c2a0cda47fc6da26ac1564/pkg/v1/remote/transport/schemer.go#L35-L44
+	if plainHTTP {
+		opts = append(opts, name.Insecure)
 	}
+
+	if len(defaultRegistry) > 0 {
+		opts = append(opts, name.WithDefaultRegistry(defaultRegistry))
+	}
+
+	ref, err = name.ParseReference(image, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -304,8 +314,12 @@ func check(ref name.Reference, kc authn.Keychain, registryTransport *http.Transp
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	_, imgErr = remote.Head(ref, remote.WithAuthFromKeychain(kc), remote.WithTransport(registryTransport),
-		remote.WithContext(ctx))
+	_, imgErr = remote.Head(
+		ref,
+		remote.WithAuthFromKeychain(kc),
+		remote.WithTransport(registryTransport),
+		remote.WithContext(ctx),
+	)
 
 	var availMode store.AvailabilityMode
 	if IsAbsent(imgErr) {
