@@ -45,7 +45,7 @@ spec:
         ports:
         - containerPort: 8080
           name: http
-        image: {{ .Values.k8sImageAvailabilityExporter.image.repository }}:{{ .Values.k8sImageAvailabilityExporter.image.tag | default (printf "v%s" .Chart.AppVersion) }}"
+        image: {{ .Values.k8sImageAvailabilityExporter.image.repository }}:{{ .Values.k8sImageAvailabilityExporter.image.tag | default (printf "v%s" .Chart.AppVersion) }}
         imagePullPolicy: {{ .Values.k8sImageAvailabilityExporter.image.imagePullPolicy }}
         securityContext:
           {{- toYaml .Values.securityContext | nindent 12 }}
@@ -78,5 +78,9 @@ spec:
       {{- end }}
       {{- with .Values.tolerations }}
       tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}

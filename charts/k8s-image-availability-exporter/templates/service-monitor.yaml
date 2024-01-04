@@ -7,10 +7,11 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
   name: {{ template "k8s-image-availability-exporter.fullname" . }}
+  {{- with .Values.serviceMonitor.namespace }}
   namespace: {{ . }}
   {{- end }}
   labels:
-    app: {{ template "k8s-image-availability-exporter.fullname" . }}  {{- with .Values.serviceMonitor.namespace }}
+    app: {{ template "k8s-image-availability-exporter.fullname" . }}
     {{- with .Values.serviceMonitor.labels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}

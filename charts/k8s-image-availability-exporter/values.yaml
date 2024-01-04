@@ -13,6 +13,9 @@ k8sImageAvailabilityExporter:
 # -- Number of replicas (pods) to launch.
 replicaCount: 1
 
+# -- Reference to one or more secrets to be used when [pulling images](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/#create-a-pod-that-uses-your-secret) (from private registries).
+imagePullSecrets: []
+
 # -- Pod [security context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod).
 # See the [API reference](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#security-context) for details.
 podSecurityContext: {}
