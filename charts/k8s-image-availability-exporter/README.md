@@ -1,6 +1,6 @@
 # k8s-image-availability-exporter
 
-![Version: 0.9.0](https://img.shields.io/badge/Version-0.9.0-informational?style=flat-square) ![AppVersion: v0.5.1](https://img.shields.io/badge/AppVersion-v0.5.1-informational?style=flat-square)
+![Version: 0.9.1](https://img.shields.io/badge/Version-0.9.1-informational?style=flat-square) ![AppVersion: 0.5.1](https://img.shields.io/badge/AppVersion-0.5.1-informational?style=flat-square)
 
 Application for monitoring the cluster workloads image presence in a container registry.
 
@@ -16,7 +16,7 @@ This chart bootstraps a [k8s-image-availability-exporter](https://github.com/fla
 
 | Name | Email | Url |
 | ---- | ------ | --- |
-| nabokihms | <max.nabokih@gmail.com> |  |
+| nabokihms | <max.nabokih@gmail.com> | <github.com/nabokihms> |
 
 ## Values
 
