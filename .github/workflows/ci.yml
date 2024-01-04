@@ -95,6 +95,9 @@ jobs:
     name: Chart
 
     runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.changes.outputs.changed }}
+
     steps:
     - name: Checkout
       uses: actions/checkout@v3
