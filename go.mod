@@ -3,9 +3,9 @@ module github.com/flant/k8s-image-availability-exporter
 go 1.21
 
 require (
-	github.com/gammazero/deque v0.1.0
+	github.com/gammazero/deque v0.2.1
 	github.com/google/go-containerregistry v0.17.0
-	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20230206174024-62f183e54939
+	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20231202142526-55ffb0092afd
 	github.com/prometheus/client_golang v1.18.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.8.4
