@@ -3,6 +3,7 @@ package registry
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"net/http"
 	"regexp"
@@ -66,16 +67,24 @@ func NewChecker(
 	kubeClient *kubernetes.Clientset,
 	skipVerify bool,
 	plainHTTP bool,
+	caPths []string,
 	ignoredImages []regexp.Regexp,
 	defaultRegistry string,
 	namespaceLabel string,
 ) *Checker {
-
 	informerFactory := informers.NewSharedInformerFactory(kubeClient, time.Hour)
 
 	customTransport := http.DefaultTransport.(*http.Transport).Clone()
 	if skipVerify {
 		customTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	} else if len(caPths) > 0 {
+		rootCAs := x509.NewCertPool()
+		for _, caPath := range caPths {
+			if ok := rootCAs.AppendCertsFromPEM([]byte(caPath)); !ok {
+				logrus.Fatalf("Error parsing CA file %s", caPath)
+			}
+		}
+		customTransport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
 	}
 
 	rc := &Checker{

@@ -208,8 +208,12 @@ spec:
 
 ```
 Usage of k8s-image-availability-exporter:
+  -allow-plain-http
+        whether to fallback to HTTP scheme for registries that don't support HTTPS
   -bind-address string
         address:port to bind /metrics endpoint to (default ":8080")
+  -capath value
+        path to a file that contains CA certificates in the PEM format
   -check-interval duration
         image re-check interval (default 1m0s)
   -default-registry string
