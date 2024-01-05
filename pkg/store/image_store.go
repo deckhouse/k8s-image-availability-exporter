@@ -53,8 +53,8 @@ type ImageStore struct {
 	lock sync.RWMutex
 
 	imageSet map[string]ImageInfo
-	queue    *deque.Deque
-	errQueue *deque.Deque
+	queue    *deque.Deque[string]
+	errQueue *deque.Deque[string]
 
 	check checkFunc
 
@@ -68,8 +68,8 @@ type gcFunc func(image string) []ContainerInfo
 func NewImageStore(check checkFunc, concurrentNormalChecks, concurrentErrorChecks int) *ImageStore {
 	return &ImageStore{
 		imageSet: make(map[string]ImageInfo),
-		queue:    deque.New(2048, 2048),
-		errQueue: deque.New(512, 512),
+		queue:    deque.New[string](2048, 2048),
+		errQueue: deque.New[string](512, 512),
 
 		check: check,
 
