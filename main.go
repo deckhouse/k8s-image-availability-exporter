@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"regexp"
 	"strings"
@@ -28,6 +27,8 @@ import (
 )
 
 func main() {
+	cp := &caPaths{}
+
 	imageCheckInterval := flag.Duration("check-interval", time.Minute, "image re-check interval")
 	ignoredImagesStr := flag.String("ignored-images", "", "tilde-separated image regexes to ignore, each image will be checked against this list of regexes")
 	bindAddr := flag.String("bind-address", ":8080", "address:port to bind /metrics endpoint to")
@@ -35,6 +36,7 @@ func main() {
 	insecureSkipVerify := flag.Bool("skip-registry-cert-verification", false, "whether to skip registries' certificate verification")
 	plainHTTP := flag.Bool("allow-plain-http", false, "whether to fallback to HTTP scheme for registries that don't support HTTPS") // named after the ctr cli flag
 	defaultRegistry := flag.String("default-registry", "", fmt.Sprintf("default registry to use in absence of a fully qualified image name, defaults to %q", name.DefaultRegistry))
+	flag.Var(cp, "capath", "path to a file that contains CA certificates in the PEM format") // named after the curl cli flag
 
 	flag.Parse()
 
@@ -78,6 +80,7 @@ func main() {
 		kubeClient,
 		*insecureSkipVerify,
 		*plainHTTP,
+		*cp,
 		regexes,
 		*defaultRegistry,
 		*namespaceLabels,
@@ -87,7 +90,7 @@ func main() {
 	http.Handle("/metrics", promhttp.Handler())
 	http.HandleFunc("/healthz", handlers.Healthz)
 	go func() {
-		log.Fatal(http.ListenAndServe(*bindAddr, nil))
+		logrus.Fatal(http.ListenAndServe(*bindAddr, nil))
 	}()
 
 	handlers.UpdateHealth(true)
@@ -96,4 +99,15 @@ func main() {
 		registryChecker.Tick()
 		liveTicksCounter.Inc()
 	}, *imageCheckInterval, stopCh)
+}
+
+type caPaths []string
+
+func (c *caPaths) String() string {
+	return fmt.Sprintf("%v", *c)
+}
+
+func (c *caPaths) Set(value string) error {
+	*c = append(*c, value)
+	return nil
 }

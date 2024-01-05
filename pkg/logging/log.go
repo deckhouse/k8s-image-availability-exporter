@@ -3,7 +3,7 @@ package logging
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 func NewPrometheusHook() *PrometheusHook {
@@ -24,11 +24,11 @@ type PrometheusHook struct {
 	counter *prometheus.CounterVec
 }
 
-func (h *PrometheusHook) Levels() []log.Level {
-	return log.AllLevels
+func (h *PrometheusHook) Levels() []logrus.Level {
+	return logrus.AllLevels
 }
 
-func (h *PrometheusHook) Fire(e *log.Entry) error {
+func (h *PrometheusHook) Fire(e *logrus.Entry) error {
 	h.counter.WithLabelValues(e.Level.String()).Inc()
 	return nil
 }
