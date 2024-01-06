@@ -323,6 +323,11 @@ func check(ref name.Reference, kc authn.Keychain, registryTransport *http.Transp
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
+	// Fallback to default keychain if image is not found in the provided one.
+	// This is a behavior that is close to what CRI does. Because, there is maybe an image pull secret, but with
+	// the wrong credentials. Yet, the image may be available with the default keychain.
+	kc = authn.NewMultiKeychain(kc, authn.DefaultKeychain)
+
 	_, imgErr = remote.Head(
 		ref,
 		remote.WithAuthFromKeychain(kc),
