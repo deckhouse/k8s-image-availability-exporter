@@ -61,6 +61,18 @@ spec:
             scheme: HTTP
         resources:
           {{- toYaml .Values.resources | nindent 12 }}
+        {{- if gt (len .Values.volumeMounts) 0 }}
+        {{- with .Values.volumeMounts }}
+        volumeMounts:
+          {{- toYaml . | nindent 12 }}
+        {{- end }}
+        {{- end }}
+      {{- if gt (len .Values.volumes) 0 }}
+      {{- with .Values.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
       serviceAccountName: {{ template "k8s-image-availability-exporter.fullname" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
