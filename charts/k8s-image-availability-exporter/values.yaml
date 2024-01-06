@@ -56,6 +56,14 @@ strategy: {}
 # May be set to 0 in case of GitOps deployment approach.
 revisionHistoryLimit: 10
 
+# -- Additional storage [volumes](https://kubernetes.io/docs/concepts/storage/volumes/).
+# See the [API reference](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#volumes-1) for details.
+volumes: []
+
+# -- Additional [volume mounts](https://kubernetes.io/docs/tasks/configure-pod-container/configure-volume-storage/).
+# See the [API reference](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#volumes-1) for details.
+volumeMounts: []
+
 podDisruptionBudget:
   # -- Enable a [pod distruption budget](https://kubernetes.io/docs/tasks/run-application/configure-pdb/) to help dealing with [disruptions](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/).
   # It is **highly recommended** for webhooks as disruptions can prevent launching new pods.
