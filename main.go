@@ -76,7 +76,7 @@ func main() {
 	}
 
 	registryChecker := registry.NewChecker(
-		stopCh,
+		stopCh.Done(),
 		kubeClient,
 		*insecureSkipVerify,
 		*plainHTTP,
@@ -98,7 +98,7 @@ func main() {
 	wait.Until(func() {
 		registryChecker.Tick()
 		liveTicksCounter.Inc()
-	}, *imageCheckInterval, stopCh)
+	}, *imageCheckInterval, stopCh.Done())
 }
 
 type caPaths []string
