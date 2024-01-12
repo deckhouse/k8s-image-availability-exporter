@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
-	"slices"
 	"strings"
 	"time"
 
+	"github.com/flant/k8s-image-availability-exporter/pkg/cli"
 	"github.com/flant/k8s-image-availability-exporter/pkg/handlers"
 	"github.com/flant/k8s-image-availability-exporter/pkg/logging"
 	"github.com/flant/k8s-image-availability-exporter/pkg/registry"
@@ -39,32 +39,8 @@ func main() {
 	defaultRegistry := flag.String("default-registry", "", fmt.Sprintf("default registry to use in absence of a fully qualified image name, defaults to %q", name.DefaultRegistry))
 	flag.Var(cp, "capath", "path to a file that contains CA certificates in the PEM format") // named after the curl cli flag
 
-	var forceCheckDisabledControllerKinds []string
-	flag.Func("force-check-disabled-controllers", `comma-separated list of controller kinds for which image is forcibly checked, even when workloads are disabled or suspended. Acceptable values include "Deployment", "StatefulSet", "DaemonSet", "Cronjob" or "*" for all kinds (this option is case-insensitive)`, func(flagValue string) error {
-		allowedControllerKinds := []string{"deployment", "statefulset", "daemonset", "cronjob"}
-
-	flagLoop:
-		for _, kind := range strings.Split(flagValue, ",") {
-			kind = strings.ToLower(kind)
-			if kind == "*" {
-				forceCheckDisabledControllerKinds = allowedControllerKinds
-				return nil
-			}
-
-			for _, allowedControllerKind := range allowedControllerKinds {
-				if kind == allowedControllerKind {
-					if !slices.Contains(forceCheckDisabledControllerKinds, kind) {
-						forceCheckDisabledControllerKinds = append(forceCheckDisabledControllerKinds, kind)
-					}
-					continue flagLoop
-				}
-			}
-
-			return fmt.Errorf(`must be one of %s or * for all kinds`, strings.Join(allowedControllerKinds, ", "))
-		}
-
-		return nil
-	})
+	forceCheckDisabledControllerKindsParser := cli.NewForceCheckDisabledControllerKindsParser()
+	flag.Func("force-check-disabled-controllers", `comma-separated list of controller kinds for which image is forcibly checked, even when workloads are disabled or suspended. Acceptable values include "Deployment", "StatefulSet", "DaemonSet", "Cronjob" or "*" for all kinds (this option is case-insensitive)`, forceCheckDisabledControllerKindsParser.Parse)
 
 	flag.Parse()
 
@@ -109,7 +85,7 @@ func main() {
 		*insecureSkipVerify,
 		*plainHTTP,
 		*cp,
-		forceCheckDisabledControllerKinds,
+		forceCheckDisabledControllerKindsParser.ParsedKinds,
 		regexes,
 		*defaultRegistry,
 		*namespaceLabels,
