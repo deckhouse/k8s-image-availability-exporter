@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flant/k8s-image-availability-exporter/pkg/cli"
 	"github.com/flant/k8s-image-availability-exporter/pkg/handlers"
 	"github.com/flant/k8s-image-availability-exporter/pkg/logging"
 	"github.com/flant/k8s-image-availability-exporter/pkg/registry"
@@ -37,6 +38,9 @@ func main() {
 	plainHTTP := flag.Bool("allow-plain-http", false, "whether to fallback to HTTP scheme for registries that don't support HTTPS") // named after the ctr cli flag
 	defaultRegistry := flag.String("default-registry", "", fmt.Sprintf("default registry to use in absence of a fully qualified image name, defaults to %q", name.DefaultRegistry))
 	flag.Var(cp, "capath", "path to a file that contains CA certificates in the PEM format") // named after the curl cli flag
+
+	forceCheckDisabledControllerKindsParser := cli.NewForceCheckDisabledControllerKindsParser()
+	flag.Func("force-check-disabled-controllers", `comma-separated list of controller kinds for which image is forcibly checked, even when workloads are disabled or suspended. Acceptable values include "Deployment", "StatefulSet", "DaemonSet", "Cronjob" or "*" for all kinds (this option is case-insensitive)`, forceCheckDisabledControllerKindsParser.Parse)
 
 	flag.Parse()
 
@@ -81,6 +85,7 @@ func main() {
 		*insecureSkipVerify,
 		*plainHTTP,
 		*cp,
+		forceCheckDisabledControllerKindsParser.ParsedKinds,
 		regexes,
 		*defaultRegistry,
 		*namespaceLabels,
