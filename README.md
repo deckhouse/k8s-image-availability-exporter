@@ -232,21 +232,21 @@ Usage of k8s-image-availability-exporter:
 
 The following metrics for Prometheus are provided:
 
-* `k8s_image_availability_exporter_<TYPE>_available` — non-zero indicates *successful* image check.
-* `k8s_image_availability_exporter_<TYPE>_bad_image_format` — non-zero indicates incorrect `image` field format.
-* `k8s_image_availability_exporter_<TYPE>_absent` — non-zero indicates an image's manifest absence from container registry.
-* `k8s_image_availability_exporter_<TYPE>_registry_unavailable` — non-zero indicates general registry unavailiability, perhaps, due to network outage.
-* `k8s_image_availability_exporter_deployment_registry_v1_api_not_supported` — non-zero indicates v1 Docker Registry API, these images are best ignored with `--ignored-images` cmdline parameter.
-* `k8s_image_availability_exporter_<TYPE>_authentication_failure` — non-zero indicates authentication error to container registry, verify imagePullSecrets.
-* `k8s_image_availability_exporter_<TYPE>_authorization_failure` — non-zero indicates authorization error to container registry, verify imagePullSecrets.
-* `k8s_image_availability_exporter_<TYPE>_unknown_error` — non-zero indicates an error that failed to be classified, consult exporter's logs for additional information.
+* `k8s_image_availability_exporter_available` — non-zero indicates *successful* image check.
+* `k8s_image_availability_exporter_absent` — non-zero indicates an image's manifest absence from container registry.
+* `k8s_image_availability_exporter_bad_image_format` — non-zero indicates incorrect `image` field format.
+* `k8s_image_availability_exporter_registry_unavailable` — non-zero indicates general registry unavailiability, perhaps, due to network outage.
+* `k8s_image_availability_exporter_authentication_failure` — non-zero indicates authentication error to container registry, verify imagePullSecrets.
+* `k8s_image_availability_exporter_authorization_failure` — non-zero indicates authorization error to container registry, verify imagePullSecrets.
+* `k8s_image_availability_exporter_unknown_error` — non-zero indicates an error that failed to be classified, consult exporter's logs for additional information.
 
-Each `<TYPE>` in the exporter's metrics name is replaced with the following values:
+Each metric has the following labels:
 
-* `deployment`
-* `statefulset`
-* `daemonset`
-* `cronjob`
+* `namespace` - namespace name
+* `container` - container name
+* `image` - image URL in the registry
+* `kind` - Kubernetes controller kind, namely `deployment`, `statefulset`, `daemonset` or `cronjob`
+* `name` - controller name
 
 ## Compatibility
 

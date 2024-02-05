@@ -10,52 +10,52 @@ spec:
     rules:
     - alert: DeploymentImageUnavailable
       expr: |
-        max by (namespace, deployment, container, image) (
-          k8s_image_availability_exporter_deployment_available == 0
+        max by (namespace, name, container, image) (
+          k8s_image_availability_exporter_available{kind="deployment"} == 0
         )
       annotations:
         message: >
           Image {{`{{ $labels.image }}`}} from container {{`{{ $labels.container }}`}}
-          in deployment {{`{{ $labels.deployment }}`}}
+          in deployment {{`{{ $labels.name }}`}}
           from namespace {{`{{ $labels.namespace }}`}}
           is not available in docker registry.
       labels:
         severity: critical
     - alert: StatefulSetImageUnavailable
       expr: |
-        max by (namespace, statefulset, container, image) (
-          k8s_image_availability_exporter_statefulset_available == 0
+        max by (namespace, name, container, image) (
+          k8s_image_availability_exporter_available{kind="statefulset"} == 0
         )
       annotations:
         message: >
           Image {{`{{ $labels.image }}`}} from container {{`{{ $labels.container }}`}}
-          in statefulSet {{`{{ $labels.statefulset }}`}}
+          in statefulSet {{`{{ $labels.name }}`}}
           from namespace {{`{{ $labels.namespace }}`}}
           is not available in docker registry.
       labels:
         severity: critical
     - alert: DaemonSetImageUnavailable
       expr: |
-        max by (namespace, daemonset, container, image) (
-          k8s_image_availability_exporter_daemonset_available == 0
+        max by (namespace, name, container, image) (
+          k8s_image_availability_exporter_available{kind="daemonset"} == 0
         )
       annotations:
         message: >
           Image {{`{{ $labels.image }}`}} from container {{`{{ $labels.container }}`}}
-          in daemonSet {{`{{ $labels.daemonset }}`}}
+          in daemonSet {{`{{ $labels.name }}`}}
           from namespace {{`{{ $labels.namespace }}`}}
           is not available in docker registry.
       labels:
         severity: critical
     - alert: CronJobImageUnavailable
       expr: |
-        max by (namespace, cronjob, container, image) (
-          k8s_image_availability_exporter_cronjob_available == 0
+        max by (namespace, name, container, image) (
+          k8s_image_availability_exporter_available{kind="cronjob"} == 0
         )
       annotations:
         message: >
           Image {{`{{ $labels.image }}`}} from container {{`{{ $labels.container }}`}}
-          in cronJob {{`{{ $labels.cronjob }}`}}
+          in cronJob {{`{{ $labels.name }}`}}
           from namespace {{`{{ $labels.namespace }}`}}
           is not available in docker registry.
       labels:
