@@ -81,125 +81,58 @@ Here's how to alert based on these metrics:
 
 ```yaml
 groups:
-- name: image-availability-exporter.rules
-  rules:
   - alert: DeploymentImageUnavailable
     expr: |
-      max by (namespace, deployment, container, image) (
-        k8s_image_availability_exporter_deployment_available == 0
+      max by (namespace, name, container, image) (
+        k8s_image_availability_exporter_available{kind="deployment"} == 0
       )
     annotations:
-      description: >
-        Check image's `{{ $labels.image }}` availability in container registry
-        in Namespace `{{ $labels.namespace }}`
-        in Deployment `{{ $labels.owner_name }}`
-        in container `{{ $labels.container }}` in registry.
-      summary: Image `{{ $labels.image }}` is unavailable in container registry.
-
+      message: >
+        Image {{`{{ $labels.image }}`}} from container {{`{{ $labels.container }}`}}
+        in deployment {{`{{ $labels.name }}`}}
+        from namespace {{`{{ $labels.namespace }}`}}
+        is not available in docker registry.
+    labels:
+      severity: critical
   - alert: StatefulSetImageUnavailable
     expr: |
-      max by (namespace, statefulset, container, image) (
-        k8s_image_availability_exporter_statefulset_available == 0
+      max by (namespace, name, container, image) (
+        k8s_image_availability_exporter_available{kind="statefulset"} == 0
       )
     annotations:
-      description: >
-        Check image's `{{ $labels.image }}` availability in container registry
-        in Namespace `{{ $labels.namespace }}`
-        in StatefulSet `{{ $labels.owner_name }}`
-        in container `{{ $labels.container }}` in registry.
-      summary: Image `{{ $labels.image }}` is unavailable in container registry.
-
+      message: >
+        Image {{`{{ $labels.image }}`}} from container {{`{{ $labels.container }}`}}
+        in statefulSet {{`{{ $labels.name }}`}}
+        from namespace {{`{{ $labels.namespace }}`}}
+        is not available in docker registry.
+    labels:
+      severity: critical
   - alert: DaemonSetImageUnavailable
     expr: |
-      max by (namespace, daemonset, container, image) (
-        k8s_image_availability_exporter_daemonset_available == 0
+      max by (namespace, name, container, image) (
+        k8s_image_availability_exporter_available{kind="daemonset"} == 0
       )
     annotations:
-      description: >
-        Check image's `{{ $labels.image }}` availability in container registry
-        in Namespace `{{ $labels.namespace }}`
-        in DaemonSet `{{ $labels.owner_name }}`
-        in container `{{ $labels.container }}` in registry.
-      summary: Image `{{ $labels.image }}` is unavailable in container registry.
-
+      message: >
+        Image {{`{{ $labels.image }}`}} from container {{`{{ $labels.container }}`}}
+        in daemonSet {{`{{ $labels.name }}`}}
+        from namespace {{`{{ $labels.namespace }}`}}
+        is not available in docker registry.
+    labels:
+      severity: critical
   - alert: CronJobImageUnavailable
     expr: |
-      max by (namespace, cronjob, container, image) (
-        k8s_image_availability_exporter_cronjob_available == 0
+      max by (namespace, name, container, image) (
+        k8s_image_availability_exporter_available{kind="cronjob"} == 0
       )
     annotations:
-      description: >
-        Check image's `{{ $labels.image }}` availability in container registry
-        in Namespace `{{ $labels.namespace }}`
-        in CronJob `{{ $labels.owner_name }}`
-        in container `{{ $labels.container }}` in registry.
-      summary: Image `{{ $labels.image }}` is unavailable in container registry.
-```
-
-#### prometheus-operator
-
-```yaml
-apiVersion: monitoring.coreos.com/v1
-kind: PrometheusRule
-metadata:
-  name: image-availability-exporter-alerts
-  namespace: kube-system
-spec:
-  groups:
-  - name: image-availability-exporter.rules
-    rules:
-
-    - alert: DeploymentImageUnavailable
-      expr: |
-        max by (namespace, deployment, container, image) (
-          k8s_image_availability_exporter_deployment_available == 0
-        )
-      annotations:
-        description: >
-          Check image's `{{ $labels.image }}` availability in container registry
-          in Namespace `{{ $labels.namespace }}`
-          in Deployment `{{ $labels.owner_name }}`
-          in container `{{ $labels.container }}` in registry.
-        summary: Image `{{ $labels.image }}` is unavailable.
-
-    - alert: StatefulSetImageUnavailable
-      expr: |
-        max by (namespace, statefulset, container, image) (
-          k8s_image_availability_exporter_statefulset_available == 0
-        )
-      annotations:
-        description: >
-          Check image's `{{ $labels.image }}` availability in container registry
-          in Namespace `{{ $labels.namespace }}`
-          in StatefulSet `{{ $labels.owner_name }}`
-          in container `{{ $labels.container }}` in registry.
-        summary: Image `{{ $labels.image }}` is unavailable in container registry.
-
-    - alert: DaemonSetImageUnavailable
-      expr: |
-        max by (namespace, daemonset, container, image) (
-          k8s_image_availability_exporter_daemonset_available == 0
-        )
-      annotations:
-        description: >
-          Check image's `{{ $labels.image }}` availability in container registry
-          in Namespace `{{ $labels.namespace }}`
-          in DaemonSet `{{ $labels.owner_name }}`
-          in container `{{ $labels.container }}` in registry.
-        summary: Image `{{ $labels.image }}` is unavailable in container registry.
-
-    - alert: CronJobImageUnavailable
-      expr: |
-        max by (namespace, cronjob, container, image) (
-          k8s_image_availability_exporter_cronjob_available == 0
-        )
-      annotations:
-        description: >
-          Check image's `{{ $labels.image }}` availability in container registry
-          in Namespace `{{ $labels.namespace }}`
-          in CronJob `{{ $labels.owner_name }}`
-          in container `{{ $labels.container }}` in registry.
-        summary: Image `{{ $labels.image }}` is unavailable in container registry.
+      message: >
+        Image {{`{{ $labels.image }}`}} from container {{`{{ $labels.container }}`}}
+        in cronJob {{`{{ $labels.name }}`}}
+        from namespace {{`{{ $labels.namespace }}`}}
+        is not available in docker registry.
+    labels:
+      severity: critical
 ```
 
 ## Configuration
