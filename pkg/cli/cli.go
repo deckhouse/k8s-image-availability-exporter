@@ -40,6 +40,6 @@ flagLoop:
 
 func NewForceCheckDisabledControllerKindsParser() *ForceCheckDisabledControllerKindsParser {
 	parser := &ForceCheckDisabledControllerKindsParser{}
-	parser.allowedControllerKinds = []string{"deployment", "statefulset", "daemonset", "cronjob"}
+	parser.allowedControllerKinds = []string{"deployment", "statefulset", "daemonset", "cronjob", "rollout"}
 	return parser
 }

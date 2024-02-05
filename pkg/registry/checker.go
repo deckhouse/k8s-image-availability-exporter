@@ -20,12 +20,15 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/sirupsen/logrus"
 
+	argov1informers "github.com/argoproj/argo-rollouts/pkg/client/informers/externalversions/rollouts/v1alpha1"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	batchv1informers "k8s.io/client-go/informers/batch/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 
+	argoinformers "github.com/argoproj/argo-rollouts/pkg/client/informers/externalversions"
 	"k8s.io/client-go/informers"
 
+	argo "github.com/argoproj/argo-rollouts/pkg/client/clientset/versioned"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/flant/k8s-image-availability-exporter/pkg/store"
@@ -51,6 +54,7 @@ type Checker struct {
 	daemonSetsInformer     appsv1informers.DaemonSetInformer
 	cronJobsInformer       batchv1informers.CronJobInformer
 	secretsInformer        corev1informers.SecretInformer
+	rolloutsInformer       argov1informers.RolloutInformer
 
 	controllerIndexers ControllerIndexers
 
@@ -66,6 +70,7 @@ type Checker struct {
 func NewChecker(
 	stopCh <-chan struct{},
 	kubeClient *kubernetes.Clientset,
+	argoKubeClient *argo.Clientset,
 	skipVerify bool,
 	plainHTTP bool,
 	caPths []string,
@@ -75,6 +80,7 @@ func NewChecker(
 	namespaceLabel string,
 ) *Checker {
 	informerFactory := informers.NewSharedInformerFactory(kubeClient, time.Hour)
+	argoInformerFactory := argoinformers.NewSharedInformerFactory(argoKubeClient, time.Hour)
 
 	customTransport := http.DefaultTransport.(*http.Transport).Clone()
 	if skipVerify {
@@ -104,6 +110,7 @@ func NewChecker(
 		daemonSetsInformer:     informerFactory.Apps().V1().DaemonSets(),
 		cronJobsInformer:       informerFactory.Batch().V1().CronJobs(),
 		secretsInformer:        informerFactory.Core().V1().Secrets(),
+		rolloutsInformer:       argoInformerFactory.Argoproj().V1alpha1().Rollouts(),
 
 		ignoredImagesRegex: ignoredImages,
 
@@ -172,6 +179,27 @@ func NewChecker(
 	}
 	rc.controllerIndexers.statefulSetIndexer = rc.statefulSetsInformer.Informer().GetIndexer()
 
+	_, _ = rc.rolloutsInformer.Informer().AddEventHandlerWithResyncPeriod(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			rc.reconcile(obj)
+		},
+		UpdateFunc: func(_, newObj interface{}) {
+			rc.reconcile(newObj)
+		},
+		DeleteFunc: func(obj interface{}) {
+			rc.reconcile(obj)
+		},
+	}, time.Minute)
+	err = rc.rolloutsInformer.Informer().AddIndexers(imageIndexers)
+	if err != nil {
+		panic(err)
+	}
+	err = rc.rolloutsInformer.Informer().SetTransform(getImagesFromRollout)
+	if err != nil {
+		panic(err)
+	}
+	rc.controllerIndexers.rolloutIndexer = rc.rolloutsInformer.Informer().GetIndexer()
+
 	_, _ = rc.daemonSetsInformer.Informer().AddEventHandlerWithResyncPeriod(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			rc.reconcile(obj)
@@ -219,8 +247,10 @@ func NewChecker(
 	rc.controllerIndexers.forceCheckDisabledControllerKinds = forceCheckDisabledControllerKinds
 
 	go informerFactory.Start(stopCh)
+	go argoInformerFactory.Start(stopCh)
 	logrus.Info("Waiting for cache sync")
 	informerFactory.WaitForCacheSync(stopCh)
+	argoInformerFactory.WaitForCacheSync(stopCh)
 	logrus.Info("Caches populated successfully")
 
 	rc.imageStore.RunGC(rc.controllerIndexers.GetContainerInfosForImage)
