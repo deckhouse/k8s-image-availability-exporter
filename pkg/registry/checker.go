@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"net/http"
+	"os"
 	"regexp"
 	"time"
 
@@ -79,10 +80,17 @@ func NewChecker(
 	if skipVerify {
 		customTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	} else if len(caPths) > 0 {
-		rootCAs := x509.NewCertPool()
+		rootCAs, _ := x509.SystemCertPool()
+		if rootCAs == nil {
+			rootCAs = x509.NewCertPool()
+		}
 		for _, caPath := range caPths {
-			if ok := rootCAs.AppendCertsFromPEM([]byte(caPath)); !ok {
-				logrus.Fatalf("Error parsing CA file %s", caPath)
+			pemCerts, err := os.ReadFile(caPath)
+			if err != nil {
+				logrus.Fatalf("Failed to open file %q: %v", caPath, err)
+			}
+			if ok := rootCAs.AppendCertsFromPEM(pemCerts); !ok {
+				logrus.Fatalf("Error parsing %q content as a PEM encoded certificate", caPath)
 			}
 		}
 		customTransport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
