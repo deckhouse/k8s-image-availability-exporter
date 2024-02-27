@@ -10,7 +10,12 @@ metadata:
     app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
     app.kubernetes.io/component: monitoring
 spec:
-  replicas: {{ .Values.k8sImageAvailabilityExporter.replicas }}
+  replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  {{- with .Values.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     matchLabels:
       app: {{ template "k8s-image-availability-exporter.fullname" . }}
@@ -19,6 +24,9 @@ spec:
       labels:
         app: {{ template "k8s-image-availability-exporter.fullname" . }}
     spec:
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . | quote }}
+      {{- end }}
       containers:
       - name: k8s-image-availability-exporter
         {{- if .Values.k8sImageAvailabilityExporter.args }}
@@ -37,8 +45,10 @@ spec:
         ports:
         - containerPort: 8080
           name: http
-        image: {{ .Values.k8sImageAvailabilityExporter.image.repository }}:{{ .Values.k8sImageAvailabilityExporter.image.tag }}
+        image: {{ .Values.k8sImageAvailabilityExporter.image.repository }}:{{ .Values.k8sImageAvailabilityExporter.image.tag | default (printf "v%s" .Chart.AppVersion) }}
         imagePullPolicy: {{ .Values.k8sImageAvailabilityExporter.image.imagePullPolicy }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 12 }}
         livenessProbe:
           httpGet:
             path: /healthz
@@ -50,7 +60,39 @@ spec:
             port: http
             scheme: HTTP
         resources:
-        {{ if .Values.k8sImageAvailabilityExporter.resources }}
-{{ .Values.k8sImageAvailabilityExporter.resources | toYaml | indent 10}}
-        {{ end }}
+          {{- toYaml .Values.resources | nindent 12 }}
+        {{- if gt (len .Values.volumeMounts) 0 }}
+        {{- with .Values.volumeMounts }}
+        volumeMounts:
+          {{- toYaml . | nindent 12 }}
+        {{- end }}
+        {{- end }}
+      {{- if gt (len .Values.volumes) 0 }}
+      {{- with .Values.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
       serviceAccountName: {{ template "k8s-image-availability-exporter.fullname" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

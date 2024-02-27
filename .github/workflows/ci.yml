@@ -8,62 +8,181 @@ on:
   pull_request:
     branches:
     - master
+
 env:
   REGISTRY: registry-write.deckhouse.io
   IMAGE_NAME: k8s-image-availability-exporter/k8s-image-availability-exporter
+
 jobs:
   test:
+    name: Test
     runs-on: ubuntu-latest
-    steps:
-    - uses: actions/setup-go@v4
-      with:
-        go-version: '1.19'
 
-    - uses: actions/checkout@v3.5.2
+    steps:
+    - uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+
+    - uses: actions/checkout@v4
 
     - name: Test With Coverage
       run: go test -v -race  -coverprofile=coverage.txt -covermode=atomic ./...
+
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3.1.4
+      uses: codecov/codecov-action@v4.0.2
       with:
         files: coverage.txt
 
-    - name: golangci-lint
-      uses: golangci/golangci-lint-action@v3.4.0
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-go@v5
       with:
-        args: --timeout=5m
-        # since go test already does it in a previous step
-        skip-pkg-cache: true
+        go-version: '1.21'
+
+    - name: Download golangci-lint
+      run: make bin/golangci-lint
+
+    - name: Lint
+      run: make lint
+
   build:
+    name: Build
+
     runs-on: ubuntu-latest
     needs: test
+
     permissions:
       contents: read
       packages: write
+
     steps:
-      - uses: actions/checkout@v3.5.2
+      - uses: actions/checkout@v4
+
       # Login against a Docker registry except on PR
       # https://github.com/docker/login-action
       - name: Log into registry ${{ env.REGISTRY }}
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@v2.1.0
+        uses: docker/login-action@v3.0.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ secrets.DECKHOUSE_REGISTRY_USER }}
           password: ${{ secrets.DECKHOUSE_REGISTRY_PASSWORD }}
+
       # Extract metadata (tags, labels) for Docker
       # https://github.com/docker/metadata-action
       - name: Extract Docker metadata
         id: meta
-        uses: docker/metadata-action@v4.4.0
+        uses: docker/metadata-action@v5.5.1
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
       - name: Build and push Docker image
-        uses: docker/build-push-action@v4.0.0
+        uses: docker/build-push-action@v5.1.0
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  chart:
+    name: Chart
+
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.changes.outputs.changed }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Helm
+      uses: azure/setup-helm@v3
+      with:
+        version: v3.10.3
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+
+    - name: Set up chart-testing
+      uses: helm/chart-testing-action@v2.6.1
+
+    - name: Lint
+      run: ct lint
+
+    - name: Check generated docs
+      run: |
+        make docs
+        test "$(git diff --name-only)" == "" \
+        || ( printf >&2 "\nREADME files are not up to date (run 'make docs'), differences:\n\n%s\n\n" "$(git diff)" ; exit 1 ; )
+
+    - name: Detect changes
+      id: changes
+      run: |
+        changed=$(ct list-changed)
+        if [[ -n "$changed" ]]; then
+          echo "changed=true" >> $GITHUB_OUTPUT
+        fi
+
+  chart-test:
+    name: Chart Test
+    runs-on: ubuntu-latest
+    needs: chart
+    if: needs.chart.outputs.changed == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        kube: ["1.24", "1.25", "1.26"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.10.3
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Set up chart-testing
+        uses: helm/chart-testing-action@v2.6.1
+
+      # See https://github.com/kubernetes-sigs/kind/releases/tag/v0.17.0
+      - name: Determine KinD node image version
+        id: node_image
+        run: |
+          case ${{ matrix.kube }} in
+            1.24)
+              NODE_IMAGE=kindest/node:v1.24.7@sha256:577c630ce8e509131eab1aea12c022190978dd2f745aac5eb1fe65c0807eb315 ;;
+            1.25)
+              NODE_IMAGE=kindest/node:v1.25.3@sha256:f52781bc0d7a19fb6c405c2af83abfeb311f130707a0e219175677e366cc45d1 ;;
+            1.26)
+              NODE_IMAGE=kindest/node:v1.26.0@sha256:691e24bd2417609db7e589e1a479b902d2e209892a10ce375fab60a8407c7352 ;;
+            esac
+
+            echo "image=$NODE_IMAGE" >> $GITHUB_OUTPUT
+
+      - name: Create KinD cluster
+        uses: helm/kind-action@v1.9.0
+        with:
+          version: v0.17.0
+          node_image: ${{ steps.node_image.outputs.image }}
+
+      - name: Test
+        run: ct install

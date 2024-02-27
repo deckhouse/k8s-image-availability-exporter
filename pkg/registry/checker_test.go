@@ -1,4 +1,4 @@
-package registry_checker
+package registry
 
 import (
 	"path"
@@ -16,13 +16,13 @@ func Test_parseImageName(t *testing.T) {
 		defaultRegistryName = "test-registry.io"
 	)
 
-	_, err := parseImageName(goodImageName, "")
+	_, err := parseImageName(goodImageName, "", false)
 	require.NoError(t, err)
 
-	_, err = parseImageName(badImageName, "")
+	_, err = parseImageName(badImageName, "", false)
 	require.Error(t, err)
 
-	ref, err := parseImageName(goodImageNameWithoutRegistry, defaultRegistryName)
+	ref, err := parseImageName(goodImageNameWithoutRegistry, defaultRegistryName, false)
 	require.NoError(t, err)
-	require.Equal(t, ref.Name(), path.Join(defaultRegistryName, goodImageNameWithoutRegistry))
+	require.Equal(t, path.Join(defaultRegistryName, goodImageNameWithoutRegistry), ref.Name())
 }

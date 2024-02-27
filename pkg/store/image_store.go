@@ -1,7 +1,6 @@
 package store
 
 import (
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -53,8 +52,8 @@ type ImageStore struct {
 	lock sync.RWMutex
 
 	imageSet map[string]ImageInfo
-	queue    *deque.Deque
-	errQueue *deque.Deque
+	queue    *deque.Deque[string]
+	errQueue *deque.Deque[string]
 
 	check checkFunc
 
@@ -68,8 +67,8 @@ type gcFunc func(image string) []ContainerInfo
 func NewImageStore(check checkFunc, concurrentNormalChecks, concurrentErrorChecks int) *ImageStore {
 	return &ImageStore{
 		imageSet: make(map[string]ImageInfo),
-		queue:    deque.New(2048, 2048),
-		errQueue: deque.New(512, 512),
+		queue:    deque.New[string](2048, 2048),
+		errQueue: deque.New[string](512, 512),
 
 		check: check,
 
@@ -217,27 +216,14 @@ func newNamedConstMetrics(ownerKind, ownerName, namespace, container, image stri
 		"namespace": namespace,
 		"container": container,
 		"image":     image,
+		"kind":      strings.ToLower(ownerKind),
+		"name":      ownerName,
 	}
 
-	switch ownerKind {
-	case "Deployment":
-		labels["deployment"] = ownerName
-		return getMetricByControllerKind(ownerKind, labels, avalMode)
-	case "StatefulSet":
-		labels["statefulset"] = ownerName
-		return getMetricByControllerKind(ownerKind, labels, avalMode)
-	case "DaemonSet":
-		labels["daemonset"] = ownerName
-		return getMetricByControllerKind(ownerKind, labels, avalMode)
-	case "CronJob":
-		labels["cronjob"] = ownerName
-		return getMetricByControllerKind(ownerKind, labels, avalMode)
-	default:
-		panic(fmt.Sprintf("received unknown metric name: %s", ownerKind))
-	}
+	return getMetric(labels, avalMode)
 }
 
-func getMetricByControllerKind(controllerKind string, labels map[string]string, mode AvailabilityMode) (ret []prometheus.Metric) {
+func getMetric(labels map[string]string, mode AvailabilityMode) (ret []prometheus.Metric) {
 	for availMode, desc := range AvailabilityModeDescMap {
 		var value float64
 		if availMode == mode {
@@ -245,7 +231,7 @@ func getMetricByControllerKind(controllerKind string, labels map[string]string, 
 		}
 
 		ret = append(ret, prometheus.MustNewConstMetric(
-			prometheus.NewDesc("k8s_image_availability_exporter_"+strings.ToLower(controllerKind)+"_"+desc, "", nil, labels),
+			prometheus.NewDesc("k8s_image_availability_exporter_"+desc, "", nil, labels),
 			prometheus.GaugeValue,
 			value,
 		))

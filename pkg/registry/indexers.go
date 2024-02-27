@@ -1,13 +1,15 @@
-package registry_checker
+package registry
 
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/flant/k8s-image-availability-exporter/pkg/store"
 	"github.com/google/go-containerregistry/pkg/authn"
 	kubeauth "github.com/google/go-containerregistry/pkg/authn/kubernetes"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -21,13 +23,14 @@ const (
 )
 
 type ControllerIndexers struct {
-	namespaceIndexer      cache.Indexer
-	serviceAccountIndexer cache.Indexer
-	deploymentIndexer     cache.Indexer
-	statefulSetIndexer    cache.Indexer
-	daemonSetIndexer      cache.Indexer
-	cronJobIndexer        cache.Indexer
-	secretIndexer         cache.Indexer
+	namespaceIndexer                  cache.Indexer
+	serviceAccountIndexer             cache.Indexer
+	deploymentIndexer                 cache.Indexer
+	statefulSetIndexer                cache.Indexer
+	daemonSetIndexer                  cache.Indexer
+	cronJobIndexer                    cache.Indexer
+	secretIndexer                     cache.Indexer
+	forceCheckDisabledControllerKinds []string
 }
 
 type controllerWithContainerInfos struct {
@@ -51,7 +54,7 @@ var (
 )
 
 func (ci ControllerIndexers) validCi(cis *controllerWithContainerInfos) bool {
-	if !cis.enabled {
+	if !cis.enabled && !slices.Contains(ci.forceCheckDisabledControllerKinds, strings.ToLower(cis.controllerKind)) {
 		return false
 	}
 
@@ -201,7 +204,7 @@ func (ci ControllerIndexers) ExtractPullSecretRefs(obj interface{}) (ret []strin
 
 		saRaw, exists, err := ci.serviceAccountIndexer.GetByKey(fmt.Sprintf("%s/%s", cis.Namespace, serviceAccountName))
 		if err != nil {
-			log.Warn(err)
+			logrus.Warn(err)
 			return
 		}
 
@@ -284,7 +287,7 @@ func (ci ControllerIndexers) GetKeychainForImage(image string) authn.Keychain {
 
 	kc, err := kubeauth.NewFromPullSecrets(context.TODO(), dereferencedPullSecrets)
 	if err != nil {
-		log.Panic(err)
+		logrus.Panic(err)
 	}
 
 	return kc

@@ -3,15 +3,15 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/flant/k8s-image-availability-exporter/pkg/cli"
 	"github.com/flant/k8s-image-availability-exporter/pkg/handlers"
 	"github.com/flant/k8s-image-availability-exporter/pkg/logging"
-	"github.com/flant/k8s-image-availability-exporter/pkg/registry_checker"
+	"github.com/flant/k8s-image-availability-exporter/pkg/registry"
 
 	"github.com/google/go-containerregistry/pkg/name"
 
@@ -28,13 +28,19 @@ import (
 )
 
 func main() {
+	cp := &caPaths{}
+
 	imageCheckInterval := flag.Duration("check-interval", time.Minute, "image re-check interval")
 	ignoredImagesStr := flag.String("ignored-images", "", "tilde-separated image regexes to ignore, each image will be checked against this list of regexes")
 	bindAddr := flag.String("bind-address", ":8080", "address:port to bind /metrics endpoint to")
 	namespaceLabels := flag.String("namespace-label", "", "namespace label for checks")
 	insecureSkipVerify := flag.Bool("skip-registry-cert-verification", false, "whether to skip registries' certificate verification")
-	defaultRegistry := flag.String("default-registry", "",
-		fmt.Sprintf("default registry to use in absence of a fully qualified image name, defaults to %q", name.DefaultRegistry))
+	plainHTTP := flag.Bool("allow-plain-http", false, "whether to fallback to HTTP scheme for registries that don't support HTTPS") // named after the ctr cli flag
+	defaultRegistry := flag.String("default-registry", "", fmt.Sprintf("default registry to use in absence of a fully qualified image name, defaults to %q", name.DefaultRegistry))
+	flag.Var(cp, "capath", "path to a file that contains CA certificates in the PEM format") // named after the curl cli flag
+
+	forceCheckDisabledControllerKindsParser := cli.NewForceCheckDisabledControllerKindsParser()
+	flag.Func("force-check-disabled-controllers", `comma-separated list of controller kinds for which image is forcibly checked, even when workloads are disabled or suspended. Acceptable values include "Deployment", "StatefulSet", "DaemonSet", "Cronjob" or "*" for all kinds (this option is case-insensitive)`, forceCheckDisabledControllerKindsParser.Parse)
 
 	flag.Parse()
 
@@ -73,10 +79,13 @@ func main() {
 		}
 	}
 
-	registryChecker := registry_checker.NewRegistryChecker(
-		stopCh,
+	registryChecker := registry.NewChecker(
+		stopCh.Done(),
 		kubeClient,
 		*insecureSkipVerify,
+		*plainHTTP,
+		*cp,
+		forceCheckDisabledControllerKindsParser.ParsedKinds,
 		regexes,
 		*defaultRegistry,
 		*namespaceLabels,
@@ -86,7 +95,7 @@ func main() {
 	http.Handle("/metrics", promhttp.Handler())
 	http.HandleFunc("/healthz", handlers.Healthz)
 	go func() {
-		log.Fatal(http.ListenAndServe(*bindAddr, nil))
+		logrus.Fatal(http.ListenAndServe(*bindAddr, nil))
 	}()
 
 	handlers.UpdateHealth(true)
@@ -94,5 +103,16 @@ func main() {
 	wait.Until(func() {
 		registryChecker.Tick()
 		liveTicksCounter.Inc()
-	}, *imageCheckInterval, stopCh)
+	}, *imageCheckInterval, stopCh.Done())
+}
+
+type caPaths []string
+
+func (c *caPaths) String() string {
+	return fmt.Sprintf("%v", *c)
+}
+
+func (c *caPaths) Set(value string) error {
+	*c = append(*c, value)
+	return nil
 }

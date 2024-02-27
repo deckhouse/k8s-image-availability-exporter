@@ -1,4 +1,4 @@
-package registry_checker
+package registry
 
 import (
 	"errors"
@@ -42,8 +42,5 @@ func IsAuthzFail(err error) bool {
 }
 
 func IsOldRegistry(err error) bool {
-	var schemaErr *remote.ErrSchema1
-	errors.As(err, &schemaErr)
-
-	return schemaErr != nil
+	return errors.Is(err, remote.ErrSchema1)
 }

@@ -1,10 +1,12 @@
-package registry_checker
+package registry
 
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"net/http"
+	"os"
 	"regexp"
 	"time"
 
@@ -38,9 +40,10 @@ const (
 
 type registryCheckerConfig struct {
 	defaultRegistry string
+	plainHTTP       bool
 }
 
-type RegistryChecker struct {
+type Checker struct {
 	imageStore *store.ImageStore
 
 	serviceAccountInformer corev1informers.ServiceAccountInformer
@@ -62,23 +65,40 @@ type RegistryChecker struct {
 	config registryCheckerConfig
 }
 
-func NewRegistryChecker(
+func NewChecker(
 	stopCh <-chan struct{},
 	kubeClient *kubernetes.Clientset,
 	skipVerify bool,
+	plainHTTP bool,
+	caPths []string,
+	forceCheckDisabledControllerKinds []string,
 	ignoredImages []regexp.Regexp,
 	defaultRegistry string,
 	namespaceLabel string,
-) *RegistryChecker {
-
+) *Checker {
 	informerFactory := informers.NewSharedInformerFactory(kubeClient, time.Hour)
 
 	customTransport := http.DefaultTransport.(*http.Transport).Clone()
 	if skipVerify {
 		customTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	} else if len(caPths) > 0 {
+		rootCAs, _ := x509.SystemCertPool()
+		if rootCAs == nil {
+			rootCAs = x509.NewCertPool()
+		}
+		for _, caPath := range caPths {
+			pemCerts, err := os.ReadFile(caPath)
+			if err != nil {
+				logrus.Fatalf("Failed to open file %q: %v", caPath, err)
+			}
+			if ok := rootCAs.AppendCertsFromPEM(pemCerts); !ok {
+				logrus.Fatalf("Error parsing %q content as a PEM encoded certificate", caPath)
+			}
+		}
+		customTransport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
 	}
 
-	rc := &RegistryChecker{
+	rc := &Checker{
 		serviceAccountInformer: informerFactory.Core().V1().ServiceAccounts(),
 		namespacesInformer:     informerFactory.Core().V1().Namespaces(),
 		deploymentsInformer:    informerFactory.Apps().V1().Deployments(),
@@ -95,6 +115,7 @@ func NewRegistryChecker(
 
 		config: registryCheckerConfig{
 			defaultRegistry: defaultRegistry,
+			plainHTTP:       plainHTTP,
 		},
 	}
 
@@ -212,6 +233,8 @@ func NewRegistryChecker(
 		rc.controllerIndexers.secretIndexer = rc.secretsInformer.Informer().GetIndexer()
 	}
 
+	rc.controllerIndexers.forceCheckDisabledControllerKinds = forceCheckDisabledControllerKinds
+
 	go informerFactory.Start(stopCh)
 	logrus.Info("Waiting for cache sync")
 	informerFactory.WaitForCacheSync(stopCh)
@@ -223,7 +246,7 @@ func NewRegistryChecker(
 }
 
 // Collect implements prometheus.Collector.
-func (rc *RegistryChecker) Collect(ch chan<- prometheus.Metric) {
+func (rc *Checker) Collect(ch chan<- prometheus.Metric) {
 	metrics := rc.imageStore.ExtractMetrics()
 
 	for _, m := range metrics {
@@ -232,13 +255,13 @@ func (rc *RegistryChecker) Collect(ch chan<- prometheus.Metric) {
 }
 
 // Describe implements prometheus.Collector.
-func (rc *RegistryChecker) Describe(_ chan<- *prometheus.Desc) {}
+func (rc *Checker) Describe(_ chan<- *prometheus.Desc) {}
 
-func (rc *RegistryChecker) Tick() {
+func (rc *Checker) Tick() {
 	rc.imageStore.Check()
 }
 
-func (rc *RegistryChecker) reconcile(obj interface{}) {
+func (rc *Checker) reconcile(obj interface{}) {
 	cis := getCis(obj)
 
 imagesLoop:
@@ -255,15 +278,15 @@ imagesLoop:
 	}
 }
 
-func (rc *RegistryChecker) Check(imageName string) store.AvailabilityMode {
+func (rc *Checker) Check(imageName string) store.AvailabilityMode {
 	keyChain := rc.controllerIndexers.GetKeychainForImage(imageName)
 
 	log := logrus.WithField("image_name", imageName)
 	return rc.checkImageAvailability(log, imageName, keyChain)
 }
 
-func (rc *RegistryChecker) checkImageAvailability(log *logrus.Entry, imageName string, kc authn.Keychain) (availMode store.AvailabilityMode) {
-	ref, err := parseImageName(imageName, rc.config.defaultRegistry)
+func (rc *Checker) checkImageAvailability(log *logrus.Entry, imageName string, kc authn.Keychain) (availMode store.AvailabilityMode) {
+	ref, err := parseImageName(imageName, rc.config.defaultRegistry, rc.config.plainHTTP)
 	if err != nil {
 		return checkImageNameParseErr(log, err)
 	}
@@ -297,17 +320,24 @@ func checkImageNameParseErr(log *logrus.Entry, err error) store.AvailabilityMode
 	return store.UnknownError
 }
 
-func parseImageName(image string, defaultRegistry string) (name.Reference, error) {
+func parseImageName(image string, defaultRegistry string, plainHTTP bool) (name.Reference, error) {
 	var (
 		ref name.Reference
 		err error
 	)
 
-	if len(defaultRegistry) == 0 {
-		ref, err = name.ParseReference(image)
-	} else {
-		ref, err = name.ParseReference(image, name.WithDefaultRegistry(defaultRegistry))
+	opts := make([]name.Option, 0)
+	// Fallback to http scheme by default. See:
+	//  go-containerregistry https://github.com/jonjohnsonjr/go-containerregistry/blob/2a0d58f7c5f77f2a03c2a0cda47fc6da26ac1564/pkg/v1/remote/transport/schemer.go#L35-L44
+	if plainHTTP {
+		opts = append(opts, name.Insecure)
 	}
+
+	if len(defaultRegistry) > 0 {
+		opts = append(opts, name.WithDefaultRegistry(defaultRegistry))
+	}
+
+	ref, err = name.ParseReference(image, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -321,8 +351,21 @@ func check(ref name.Reference, kc authn.Keychain, registryTransport *http.Transp
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	_, imgErr = remote.Head(ref, remote.WithAuthFromKeychain(kc), remote.WithTransport(registryTransport),
-		remote.WithContext(ctx))
+	// Fallback to default keychain if image is not found in the provided one.
+	// This is a behavior that is close to what CRI does. Because, there is maybe an image pull secret, but with
+	// the wrong credentials. Yet, the image may be available with the default keychain.
+	if kc != nil {
+		kc = authn.NewMultiKeychain(kc, authn.DefaultKeychain)
+	} else {
+		kc = authn.DefaultKeychain
+	}
+
+	_, imgErr = remote.Head(
+		ref,
+		remote.WithAuthFromKeychain(kc),
+		remote.WithTransport(registryTransport),
+		remote.WithContext(ctx),
+	)
 
 	var availMode store.AvailabilityMode
 	if IsAbsent(imgErr) {
