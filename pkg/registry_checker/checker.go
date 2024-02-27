@@ -207,7 +207,7 @@ func NewRegistryChecker(
 			logrus.Error("Error trying to list secrets %v\n", statusError.ErrStatus.Message)
 		}
 	} else if err != nil {
-		panic(err.Error())
+		logrus.Fatal(err.Error())
 	} else {
 		rc.controllerIndexers.secretIndexer = rc.secretsInformer.Informer().GetIndexer()
 	}
