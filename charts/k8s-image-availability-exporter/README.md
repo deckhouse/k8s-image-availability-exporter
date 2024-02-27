@@ -1,6 +1,6 @@
 # k8s-image-availability-exporter
 
-![Version: 0.11.0](https://img.shields.io/badge/Version-0.11.0-informational?style=flat-square) ![AppVersion: 0.7.0](https://img.shields.io/badge/AppVersion-0.7.0-informational?style=flat-square)
+![Version: 0.12.0](https://img.shields.io/badge/Version-0.12.0-informational?style=flat-square) ![AppVersion: 0.7.0](https://img.shields.io/badge/AppVersion-0.7.0-informational?style=flat-square)
 
 Application for monitoring the cluster workloads image presence in a container registry.
 
@@ -26,6 +26,7 @@ This chart bootstraps a [k8s-image-availability-exporter](https://github.com/fla
 | k8sImageAvailabilityExporter.image.tag | string | `""` | Image tag override for the default value (chart appVersion) |
 | k8sImageAvailabilityExporter.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy to use for the k8s-image-availability-exporter deployment |
 | k8sImageAvailabilityExporter.args | list | `["--bind-address=:8080"]` | Command line arguments for the exporter |
+| k8sImageAvailabilityExporter.useSecretsForPrivateRepositories | bool | `true` | Setting this to false will prevent k8s-iae having unconstrained cluster-wide secret access |
 | replicaCount | int | `1` | Number of replicas (pods) to launch. |
 | imagePullSecrets | list | `[]` | Reference to one or more secrets to be used when [pulling images](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/#create-a-pod-that-uses-your-secret) (from private registries). |
 | podSecurityContext | object | `{}` | Pod [security context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod). See the [API reference](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#security-context) for details. |

@@ -225,7 +225,9 @@ func NewChecker(
 		if statusError.ErrStatus.Code == 401 {
 			logrus.Warn("The provided ServiceAccount is not able to list secrets. The check for images in private registries requires 'spec.imagePullSecrets' to be configured correctly.")
 		} else {
-			logrus.Error("Error trying to list secrets %v\n", statusError.ErrStatus.Message)
+			logrus.WithFields(logrus.Fields{
+				"error_message": statusError.ErrStatus.Message,
+			}).Error("Error trying to list secrets")
 		}
 	} else if err != nil {
 		logrus.Fatal(err.Error())
