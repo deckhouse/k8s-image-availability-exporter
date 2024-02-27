@@ -3,6 +3,7 @@ module github.com/flant/k8s-image-availability-exporter
 go 1.21
 
 require (
+	github.com/argoproj/argo-rollouts v1.6.5
 	github.com/gammazero/deque v0.2.1
 	github.com/google/go-containerregistry v0.19.0
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20231202142526-55ffb0092afd
@@ -36,7 +37,7 @@ require (
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/uuid v1.3.0 // indirect
-	github.com/imdario/mergo v0.3.12 // indirect
+	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.16.5 // indirect

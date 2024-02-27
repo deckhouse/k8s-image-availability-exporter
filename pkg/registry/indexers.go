@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
 	"github.com/flant/k8s-image-availability-exporter/pkg/store"
 	"github.com/google/go-containerregistry/pkg/authn"
 	kubeauth "github.com/google/go-containerregistry/pkg/authn/kubernetes"
@@ -30,6 +31,7 @@ type ControllerIndexers struct {
 	daemonSetIndexer                  cache.Indexer
 	cronJobIndexer                    cache.Indexer
 	secretIndexer                     cache.Indexer
+	rolloutIndexer                    cache.Indexer
 	forceCheckDisabledControllerKinds []string
 }
 
@@ -100,6 +102,25 @@ func getImagesFromDeployment(obj interface{}) (interface{}, error) {
 		pullSecretReferences: deploymentCopy.Spec.Template.Spec.ImagePullSecrets,
 		serviceAccountName:   deploymentCopy.Spec.Template.Spec.ServiceAccountName,
 		enabled:              *deploymentCopy.Spec.Replicas > 0,
+	}, nil
+}
+
+func getImagesFromRollout(obj interface{}) (interface{}, error) {
+	if cis, ok := obj.(*controllerWithContainerInfos); ok {
+		return cis, nil
+	}
+
+	rollout := obj.(*v1alpha1.Rollout)
+
+	rolloutCopy := rollout.DeepCopy()
+
+	return &controllerWithContainerInfos{
+		ObjectMeta:           rolloutCopy.ObjectMeta,
+		controllerKind:       "Rollout",
+		containerToImages:    extractImagesFromContainers(rolloutCopy.Spec.Template.Spec.Containers),
+		pullSecretReferences: rolloutCopy.Spec.Template.Spec.ImagePullSecrets,
+		serviceAccountName:   rolloutCopy.Spec.Template.Spec.ServiceAccountName,
+		enabled:              *rolloutCopy.Spec.Replicas > 0,
 	}, nil
 }
 
@@ -219,7 +240,7 @@ func (ci ControllerIndexers) ExtractPullSecretRefs(obj interface{}) (ret []strin
 }
 
 func (ci ControllerIndexers) GetObjectsByImageIndex(image string) (ret []interface{}) {
-	for _, indexer := range []cache.Indexer{ci.deploymentIndexer, ci.statefulSetIndexer, ci.daemonSetIndexer, ci.cronJobIndexer} {
+	for _, indexer := range []cache.Indexer{ci.deploymentIndexer, ci.statefulSetIndexer, ci.daemonSetIndexer, ci.cronJobIndexer, ci.rolloutIndexer} {
 		objs, err := indexer.ByIndex(imageIndexName, image)
 		if err != nil {
 			panic(err)

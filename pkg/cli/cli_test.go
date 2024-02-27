@@ -12,7 +12,7 @@ func Test_ForceCheckDisabledControllerKindsParser(t *testing.T) {
 	const (
 		allKinds                = "*"
 		goodKinds               = "deployment,statefulset"
-		goodKindsWithDuplicates = "deployment,deployment,statefulset,cronjob,cronjob"
+		goodKindsWithDuplicates = "deployment,deployment,statefulset,cronjob,cronjob,rollout"
 		goodKindsWithWildcard   = "deployment,statefulset,*"
 		badKinds                = "deployment,job"
 	)
@@ -29,7 +29,7 @@ func Test_ForceCheckDisabledControllerKindsParser(t *testing.T) {
 
 	err = parser.Parse(goodKindsWithDuplicates)
 	require.NoError(t, err)
-	require.Equal(t, parser.ParsedKinds, []string{"deployment", "statefulset", "cronjob"})
+	require.Equal(t, parser.ParsedKinds, []string{"deployment", "statefulset", "cronjob", "rollout"})
 
 	err = parser.Parse(goodKindsWithWildcard)
 	require.Error(t, expectedErr, err)

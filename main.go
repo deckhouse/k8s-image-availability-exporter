@@ -20,6 +20,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	argo "github.com/argoproj/argo-rollouts/pkg/client/clientset/versioned"
+
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -62,6 +64,11 @@ func main() {
 		logrus.Fatalf("Error building kubernetes clientset: %s", err.Error())
 	}
 
+	argoKubeClient, err := argo.NewForConfig(cfg)
+	if err != nil {
+		logrus.Fatalf("Error building argo clientset: %s", err.Error())
+	}
+
 	liveTicksCounter := prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Namespace: "k8s_image_availability_exporter",
@@ -82,6 +89,7 @@ func main() {
 	registryChecker := registry.NewChecker(
 		stopCh.Done(),
 		kubeClient,
+		argoKubeClient,
 		*insecureSkipVerify,
 		*plainHTTP,
 		*cp,
