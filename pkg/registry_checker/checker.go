@@ -197,7 +197,7 @@ func NewRegistryChecker(
 
 	namespace := "default"
 	// Create a context
-	ctx := context.TODO()
+	ctx := context.Background()
 	// Attempt to list secrets in the default namespace
 	_, enumerr := kubeClient.CoreV1().Secrets(namespace).List(ctx, metav1.ListOptions{ResourceVersion: "0"})
 	if statusError, isStatus := enumerr.(*k8sapierrors.StatusError); isStatus {
