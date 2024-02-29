@@ -117,6 +117,7 @@ func NewChecker(
 		config: registryCheckerConfig{
 			defaultRegistry: defaultRegistry,
 			plainHTTP:       plainHTTP,
+			mirrorsMap:      mirrorsMap,
 		},
 	}
 
