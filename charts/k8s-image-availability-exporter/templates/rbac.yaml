@@ -3,6 +3,7 @@ kind: ClusterRole
 metadata:
   name: {{ template "k8s-image-availability-exporter.fullname" . }}
 rules:
+{{- if .Values.k8sImageAvailabilityExporter.useSecretsForPrivateRepositories }}
   - apiGroups:
       - ""
     resources:
@@ -11,6 +12,7 @@ rules:
       - list
       - watch
       - get
+{{- end }}
   - apiGroups:
       - ""
     resources:

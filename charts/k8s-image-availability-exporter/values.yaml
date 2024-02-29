@@ -10,6 +10,9 @@ k8sImageAvailabilityExporter:
   args:
     - --bind-address=:8080
 
+  # -- Setting this to false will prevent k8s-iae having unconstrained cluster-wide secret access
+  useSecretsForPrivateRepositories: true
+
 # -- Number of replicas (pods) to launch.
 replicaCount: 1
 

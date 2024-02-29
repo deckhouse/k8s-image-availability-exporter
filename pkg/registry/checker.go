@@ -20,6 +20,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/sirupsen/logrus"
 
+	k8sapierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	batchv1informers "k8s.io/client-go/informers/batch/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
@@ -214,7 +216,24 @@ func NewChecker(
 	}
 	rc.controllerIndexers.cronJobIndexer = rc.cronJobsInformer.Informer().GetIndexer()
 
-	rc.controllerIndexers.secretIndexer = rc.secretsInformer.Informer().GetIndexer()
+	namespace := "default"
+	// Create a context
+	ctx := context.Background()
+	// Attempt to list secrets in the default namespace
+	_, enumerr := kubeClient.CoreV1().Secrets(namespace).List(ctx, metav1.ListOptions{ResourceVersion: "0"})
+	if statusError, isStatus := enumerr.(*k8sapierrors.StatusError); isStatus {
+		if statusError.ErrStatus.Code == 401 {
+			logrus.Warn("The provided ServiceAccount is not able to list secrets. The check for images in private registries requires 'spec.imagePullSecrets' to be configured correctly.")
+		} else {
+			logrus.WithFields(logrus.Fields{
+				"error_message": statusError.ErrStatus.Message,
+			}).Error("Error trying to list secrets")
+		}
+	} else if err != nil {
+		logrus.Fatal(err.Error())
+	} else {
+		rc.controllerIndexers.secretIndexer = rc.secretsInformer.Informer().GetIndexer()
+	}
 
 	rc.controllerIndexers.forceCheckDisabledControllerKinds = forceCheckDisabledControllerKinds
 
