@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -27,11 +28,28 @@ import (
 	_ "sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
+type mirrorMap map[string]string
+
+func (m *mirrorMap) String() string {
+	return fmt.Sprintf("%v", *m)
+}
+
+func (m *mirrorMap) Set(value string) error {
+	result := strings.Split(value, "=")
+	if len(result) != 2 {
+		return errors.New("invalid format for mirror, must be original=mirror")
+	}
+	(*m)[result[0]] = result[1]
+	return nil
+}
+
 func main() {
 	cp := &caPaths{}
 
+	var mirrors mirrorMap = make(map[string]string)
+	flag.Var(&mirrors, "image-mirror", "Add a mirror repository (format: original=mirror)")
+
 	imageCheckInterval := flag.Duration("check-interval", time.Minute, "image re-check interval")
-	imageMirrors := flag.String("image-mirrors", "", "List of image mirrors in the format <original_repo>=<mirror_repo>, separated by commas")
 	ignoredImagesStr := flag.String("ignored-images", "", "tilde-separated image regexes to ignore, each image will be checked against this list of regexes")
 	bindAddr := flag.String("bind-address", ":8080", "address:port to bind /metrics endpoint to")
 	namespaceLabels := flag.String("namespace-label", "", "namespace label for checks")
@@ -44,8 +62,6 @@ func main() {
 	flag.Func("force-check-disabled-controllers", `comma-separated list of controller kinds for which image is forcibly checked, even when workloads are disabled or suspended. Acceptable values include "Deployment", "StatefulSet", "DaemonSet", "Cronjob" or "*" for all kinds (this option is case-insensitive)`, forceCheckDisabledControllerKindsParser.Parse)
 
 	flag.Parse()
-
-	mirrorsMap := parseImageMirrors(*imageMirrors)
 
 	logrus.SetFormatter(&logrus.TextFormatter{
 		FullTimestamp: true,
@@ -92,7 +108,7 @@ func main() {
 		regexes,
 		*defaultRegistry,
 		*namespaceLabels,
-		mirrorsMap,
+		mirrors,
 	)
 	prometheus.MustRegister(registryChecker)
 
@@ -119,16 +135,4 @@ func (c *caPaths) String() string {
 func (c *caPaths) Set(value string) error {
 	*c = append(*c, value)
 	return nil
-}
-
-func parseImageMirrors(mirrors string) map[string]string {
-	mirrorsMap := make(map[string]string)
-	pairs := strings.Split(mirrors, ",")
-	for _, pair := range pairs {
-		split := strings.Split(pair, "=")
-		if len(split) == 2 {
-			mirrorsMap[split[0]] = split[1]
-		}
-	}
-	return mirrorsMap
 }
