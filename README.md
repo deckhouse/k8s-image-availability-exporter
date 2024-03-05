@@ -142,23 +142,25 @@ groups:
 ```
 Usage of k8s-image-availability-exporter:
   -allow-plain-http
-        whether to fallback to HTTP scheme for registries that don't support HTTPS
+    	whether to fallback to HTTP scheme for registries that don't support HTTPS
   -bind-address string
-        address:port to bind /metrics endpoint to (default ":8080")
+    	address:port to bind /metrics endpoint to (default ":8080")
   -capath value
-        path to a file that contains CA certificates in the PEM format
+    	path to a file that contains CA certificates in the PEM format
   -check-interval duration
-        image re-check interval (default 1m0s)
+    	image re-check interval (default 1m0s)
   -default-registry string
-        default registry to use in absence of a fully qualified image name, defaults to "index.docker.io"
+    	default registry to use in absence of a fully qualified image name, defaults to "index.docker.io"
   -force-check-disabled-controllers value
-        comma-separated list of controller kinds for which image is forcibly checked, even when workloads are disabled or suspended. Acceptable values include "Deployment", "StatefulSet", "DaemonSet", "Cronjob" or "*" for all kinds (this option is case-insensitive)
+    	comma-separated list of controller kinds for which image is forcibly checked, even when workloads are disabled or suspended. Acceptable values include "Deployment", "StatefulSet", "DaemonSet", "Cronjob" or "*" for all kinds (this option is case-insensitive)
   -ignored-images string
-        tilde-separated image regexes to ignore, each image will be checked against this list of regexes
+    	tilde-separated image regexes to ignore, each image will be checked against this list of regexes
+  -image-mirror value
+    	Add a mirror repository (format: original=mirror)
   -namespace-label string
-        namespace label for checks
+    	namespace label for checks
   -skip-registry-cert-verification
-        whether to skip registries' certificate verification
+    	whether to skip registries' certificate verification
 ```
 
 ## Metrics
