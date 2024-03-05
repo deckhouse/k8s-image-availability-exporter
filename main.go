@@ -28,26 +28,10 @@ import (
 	_ "sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
-type mirrorMap map[string]string
-
-func (m *mirrorMap) String() string {
-	return fmt.Sprintf("%v", *m)
-}
-
-func (m *mirrorMap) Set(value string) error {
-	result := strings.Split(value, "=")
-	if len(result) != 2 {
-		return errors.New("invalid format for mirror, must be original=mirror")
-	}
-	(*m)[result[0]] = result[1]
-	return nil
-}
-
 func main() {
-	cp := &caPaths{}
-
-	var mirrors mirrorMap = make(map[string]string)
-	flag.Var(&mirrors, "image-mirror", "Add a mirror repository (format: original=mirror)")
+	cp := newCaPaths()
+	mirrors := newMirrorMap()
+	forceCheckDisabledControllerKindsParser := cli.NewForceCheckDisabledControllerKindsParser()
 
 	imageCheckInterval := flag.Duration("check-interval", time.Minute, "image re-check interval")
 	ignoredImagesStr := flag.String("ignored-images", "", "tilde-separated image regexes to ignore, each image will be checked against this list of regexes")
@@ -56,9 +40,8 @@ func main() {
 	insecureSkipVerify := flag.Bool("skip-registry-cert-verification", false, "whether to skip registries' certificate verification")
 	plainHTTP := flag.Bool("allow-plain-http", false, "whether to fallback to HTTP scheme for registries that don't support HTTPS") // named after the ctr cli flag
 	defaultRegistry := flag.String("default-registry", "", fmt.Sprintf("default registry to use in absence of a fully qualified image name, defaults to %q", name.DefaultRegistry))
-	flag.Var(cp, "capath", "path to a file that contains CA certificates in the PEM format") // named after the curl cli flag
-
-	forceCheckDisabledControllerKindsParser := cli.NewForceCheckDisabledControllerKindsParser()
+	flag.Var(&cp, "capath", "path to a file that contains CA certificates in the PEM format") // named after the curl cli flag
+	flag.Var(&mirrors, "image-mirror", "Add a mirror repository (format: original=mirror)")
 	flag.Func("force-check-disabled-controllers", `comma-separated list of controller kinds for which image is forcibly checked, even when workloads are disabled or suspended. Acceptable values include "Deployment", "StatefulSet", "DaemonSet", "Cronjob" or "*" for all kinds (this option is case-insensitive)`, forceCheckDisabledControllerKindsParser.Parse)
 
 	flag.Parse()
@@ -103,7 +86,7 @@ func main() {
 		kubeClient,
 		*insecureSkipVerify,
 		*plainHTTP,
-		*cp,
+		cp,
 		forceCheckDisabledControllerKindsParser.ParsedKinds,
 		regexes,
 		*defaultRegistry,
@@ -126,7 +109,19 @@ func main() {
 	}, *imageCheckInterval, stopCh.Done())
 }
 
+/* Custom flag types */
+
+var (
+	_ flag.Value = (*caPaths)(nil)
+	_ flag.Value = (*mirrorMap)(nil)
+)
+
+// caPaths is a custom flag type for a list of paths to CA certificates
 type caPaths []string
+
+func newCaPaths() caPaths {
+	return caPaths{}
+}
 
 func (c *caPaths) String() string {
 	return fmt.Sprintf("%v", *c)
@@ -134,5 +129,25 @@ func (c *caPaths) String() string {
 
 func (c *caPaths) Set(value string) error {
 	*c = append(*c, value)
+	return nil
+}
+
+// mirrorMap is a custom flag type for a map of original to mirror repository names
+type mirrorMap map[string]string
+
+func newMirrorMap() mirrorMap {
+	return make(mirrorMap)
+}
+
+func (m *mirrorMap) String() string {
+	return fmt.Sprintf("%v", *m)
+}
+
+func (m *mirrorMap) Set(value string) error {
+	result := strings.Split(value, "=")
+	if len(result) != 2 {
+		return errors.New("invalid format for mirror, must be original=mirror")
+	}
+	(*m)[result[0]] = result[1]
 	return nil
 }
