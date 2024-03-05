@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -27,8 +28,26 @@ import (
 	_ "sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
+type mirrorMap map[string]string
+
+func (m *mirrorMap) String() string {
+	return fmt.Sprintf("%v", *m)
+}
+
+func (m *mirrorMap) Set(value string) error {
+	result := strings.Split(value, "=")
+	if len(result) != 2 {
+		return errors.New("invalid format for mirror, must be original=mirror")
+	}
+	(*m)[result[0]] = result[1]
+	return nil
+}
+
 func main() {
 	cp := &caPaths{}
+
+	var mirrors mirrorMap = make(map[string]string)
+	flag.Var(&mirrors, "image-mirror", "Add a mirror repository (format: original=mirror)")
 
 	imageCheckInterval := flag.Duration("check-interval", time.Minute, "image re-check interval")
 	ignoredImagesStr := flag.String("ignored-images", "", "tilde-separated image regexes to ignore, each image will be checked against this list of regexes")
@@ -89,6 +108,7 @@ func main() {
 		regexes,
 		*defaultRegistry,
 		*namespaceLabels,
+		mirrors,
 	)
 	prometheus.MustRegister(registryChecker)
 

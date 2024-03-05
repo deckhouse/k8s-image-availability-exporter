@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -41,6 +42,7 @@ const (
 type registryCheckerConfig struct {
 	defaultRegistry string
 	plainHTTP       bool
+	mirrorsMap      map[string]string
 }
 
 type Checker struct {
@@ -75,6 +77,7 @@ func NewChecker(
 	ignoredImages []regexp.Regexp,
 	defaultRegistry string,
 	namespaceLabel string,
+	mirrorsMap map[string]string,
 ) *Checker {
 	informerFactory := informers.NewSharedInformerFactory(kubeClient, time.Hour)
 
@@ -116,6 +119,7 @@ func NewChecker(
 		config: registryCheckerConfig{
 			defaultRegistry: defaultRegistry,
 			plainHTTP:       plainHTTP,
+			mirrorsMap:      mirrorsMap,
 		},
 	}
 
@@ -287,7 +291,21 @@ func (rc *Checker) Check(imageName string) store.AvailabilityMode {
 	return rc.checkImageAvailability(log, imageName, keyChain)
 }
 
+func getImageWithMirror(originalImage string, mirrors map[string]string) string {
+	for originalRepo, mirrorRepo := range mirrors {
+		if strings.HasPrefix(originalImage, originalRepo) {
+			return strings.Replace(originalImage, originalRepo, mirrorRepo, 1)
+		}
+	}
+
+	return originalImage
+}
+
 func (rc *Checker) checkImageAvailability(log *logrus.Entry, imageName string, kc authn.Keychain) (availMode store.AvailabilityMode) {
+	if len(rc.config.mirrorsMap) > 0 {
+		imageName = getImageWithMirror(imageName, rc.config.mirrorsMap)
+	}
+
 	ref, err := parseImageName(imageName, rc.config.defaultRegistry, rc.config.plainHTTP)
 	if err != nil {
 		return checkImageNameParseErr(log, err)
