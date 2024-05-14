@@ -1,6 +1,7 @@
 module github.com/flant/k8s-image-availability-exporter
 
 go 1.21
+toolchain go1.22.2
 
 require (
 	github.com/gammazero/deque v0.2.1
@@ -9,11 +10,11 @@ require (
 	github.com/prometheus/client_golang v1.19.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.9.0
-	k8s.io/api v0.29.3
-	k8s.io/apimachinery v0.29.3
-	k8s.io/client-go v0.29.3
+	k8s.io/api v0.30.0
+	k8s.io/apimachinery v0.30.0
+	k8s.io/client-go v0.30.0
 	k8s.io/sample-controller v0.29.3
-	sigs.k8s.io/controller-runtime v0.17.2
+	sigs.k8s.io/controller-runtime v0.18.2
 )
 
 require (
