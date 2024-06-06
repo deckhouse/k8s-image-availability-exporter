@@ -13,7 +13,7 @@ import (
 	"github.com/flant/k8s-image-availability-exporter/pkg/handlers"
 	"github.com/flant/k8s-image-availability-exporter/pkg/logging"
 	"github.com/flant/k8s-image-availability-exporter/pkg/registry"
-
+	"github.com/flant/k8s-image-availability-exporter/pkg/version"
 	"github.com/google/go-containerregistry/pkg/name"
 
 	"github.com/sirupsen/logrus"
@@ -50,6 +50,7 @@ func main() {
 		FullTimestamp: true,
 	})
 	logrus.AddHook(logging.NewPrometheusHook())
+	logrus.Infof("Starting k8s-image-availability-exporter %s", version.Version)
 
 	// set up signals, so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
