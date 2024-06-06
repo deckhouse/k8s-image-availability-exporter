@@ -18,7 +18,7 @@ COMMIT=$(shell git rev-parse --verify HEAD)
 # BUILDING
 ###########
 bin/k8s-image-availability-exporter:
-	GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=0 go build -mod=readonly -o bin/k8s-image-availability-exporter
+	GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=0 go build -ldflags "-X github.com/flant/k8s-image-availability-exporter/pkg/version.Version=${COMMIT}" -mod=readonly -o bin/k8s-image-availability-exporter
 
 build: bin/k8s-image-availability-exporter
 

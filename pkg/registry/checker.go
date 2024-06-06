@@ -5,13 +5,16 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/flant/k8s-image-availability-exporter/pkg/version"
 	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
@@ -60,7 +63,7 @@ type Checker struct {
 
 	ignoredImagesRegex []regexp.Regexp
 
-	registryTransport *http.Transport
+	registryTransport http.RoundTripper
 
 	kubeClient *kubernetes.Clientset
 
@@ -101,6 +104,8 @@ func NewChecker(
 		customTransport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
 	}
 
+	roundTripper := transport.NewUserAgent(customTransport, fmt.Sprintf("k8s-image-availability-exporter/%s", version.Version))
+
 	rc := &Checker{
 		serviceAccountInformer: informerFactory.Core().V1().ServiceAccounts(),
 		namespacesInformer:     informerFactory.Core().V1().Namespaces(),
@@ -112,7 +117,7 @@ func NewChecker(
 
 		ignoredImagesRegex: ignoredImages,
 
-		registryTransport: customTransport,
+		registryTransport: roundTripper,
 
 		kubeClient: kubeClient,
 
@@ -365,7 +370,7 @@ func parseImageName(image string, defaultRegistry string, plainHTTP bool) (name.
 	return ref, nil
 }
 
-func check(ref name.Reference, kc authn.Keychain, registryTransport *http.Transport) (store.AvailabilityMode, error) {
+func check(ref name.Reference, kc authn.Keychain, registryTransport http.RoundTripper) (store.AvailabilityMode, error) {
 	var imgErr error
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
