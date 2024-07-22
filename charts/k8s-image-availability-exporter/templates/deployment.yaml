@@ -2,6 +2,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ template "k8s-image-availability-exporter.fullname" . }}
+  {{- with .Values.annotations }}
+  annotations: {{- toYaml . | nindent 4 }}
+  {{- end }}
   labels:
     helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
     app.kubernetes.io/name: "{{ template "k8s-image-availability-exporter.fullname" . }}"
@@ -21,6 +24,9 @@ spec:
       app: {{ template "k8s-image-availability-exporter.fullname" . }}
   template:
     metadata:
+      {{- with .Values.podAnnotations }}
+      annotations: {{- toYaml . | nindent 8 }}
+      {{- end }}
       labels:
         app: {{ template "k8s-image-availability-exporter.fullname" . }}
     spec:
