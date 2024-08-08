@@ -13,6 +13,12 @@ k8sImageAvailabilityExporter:
   # -- Setting this to false will prevent k8s-iae having unconstrained cluster-wide secret access
   useSecretsForPrivateRepositories: true
 
+# -- additional annotations for deployment
+annotations: {}
+
+# -- additional annotations added to the pod
+podAnnotations: {}
+
 # -- Number of replicas (pods) to launch.
 replicaCount: 1
 
