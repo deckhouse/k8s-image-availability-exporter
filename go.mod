@@ -4,7 +4,7 @@ go 1.22.0
 
 require (
 	github.com/gammazero/deque v0.2.1
-	github.com/google/go-containerregistry v0.20.1
+	github.com/google/go-containerregistry v0.20.2
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20240129192428-8dadbe76ff8c
 	github.com/prometheus/client_golang v1.20.0
 	github.com/sirupsen/logrus v1.9.3
@@ -21,9 +21,8 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.15.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/docker/cli v25.0.3+incompatible // indirect
+	github.com/docker/cli v27.1.1+incompatible // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect
-	github.com/docker/docker v25.0.5+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.8.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.3 // indirect
 	github.com/go-logr/logr v1.4.1 // indirect
