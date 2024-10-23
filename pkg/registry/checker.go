@@ -324,7 +324,7 @@ func (rc *Checker) checkImageAvailability(log *logrus.Entry, imageName string, k
 	}
 
 	region := parseRegion(ref)
-	if isImageInEcr(ref, region) || rc.config.ecrImagesExists {
+	if isImageInEcr(ref, region) && rc.config.ecrImagesExists {
 		return store.Available
 	}
 
