@@ -20,12 +20,12 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ecr"
+	"github.com/aws/aws-sdk-go-v2/service/ecr/types"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-    "github.com/aws/aws-sdk-go-v2/aws"
-    "github.com/aws/aws-sdk-go-v2/config"
-    "github.com/aws/aws-sdk-go-v2/service/ecr"
-    "github.com/aws/aws-sdk-go-v2/service/ecr/types"
 	"github.com/sirupsen/logrus"
 
 	k8sapierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -323,8 +323,8 @@ func (rc *Checker) checkImageAvailability(log *logrus.Entry, imageName string, k
 		return checkImageNameParseErr(log, err)
 	}
 
-    region := parseRegion(ref)
-	if isImageInEcr(ref, region) || rc.config.ecrImagesExists{
+	region := parseRegion(ref)
+	if isImageInEcr(ref, region) || rc.config.ecrImagesExists {
 		return store.Available
 	}
 
@@ -382,28 +382,28 @@ func parseImageName(image string, defaultRegistry string, plainHTTP bool) (name.
 	return ref, nil
 }
 
-func parseAccountId(reference name.Reference) string {
-    registry := reference.Context().RegistryStr()
+func parseAccountID(reference name.Reference) string {
+	registry := reference.Context().RegistryStr()
 
-    parts := strings.Split(registry, ".")
-    if len(parts) > 0 {
-        accountID := parts[0]
-        return accountID
-    }
+	parts := strings.Split(registry, ".")
+	if len(parts) > 0 {
+		accountID := parts[0]
+		return accountID
+	}
 
-    return ""
+	return ""
 }
 
 func parseRegion(reference name.Reference) string {
-    registry := reference.Context().RegistryStr()
+	registry := reference.Context().RegistryStr()
 
-    parts := strings.Split(registry, ".")
-    if len(parts) > 3 {
-        region := parts[3]
-        return region
-    }
+	parts := strings.Split(registry, ".")
+	if len(parts) > 3 {
+		region := parts[3]
+		return region
+	}
 
-    return ""
+	return ""
 }
 
 func check(ref name.Reference, kc authn.Keychain, registryTransport http.RoundTripper) (store.AvailabilityMode, error) {
@@ -445,32 +445,32 @@ func check(ref name.Reference, kc authn.Keychain, registryTransport http.RoundTr
 }
 
 func isImageInEcr(ref name.Reference, region string) bool {
-    cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
-    if err != nil {
-        logrus.Errorf("Failed to load AWS SDK config: %v", err)
-        return false
-    }
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+	if err != nil {
+		logrus.Errorf("Failed to load AWS SDK config: %v", err)
+		return false
+	}
 
-    ecrClient := ecr.NewFromConfig(cfg)
-    input := &ecr.BatchGetImageInput{
-		RegistryId: aws.String(parseAccountId(ref)),
-        RepositoryName: aws.String(ref.Context().RepositoryStr()),
-        ImageIds: []types.ImageIdentifier{
-            {ImageTag: aws.String(ref.Identifier())},
-        },
-    }
+	ecrClient := ecr.NewFromConfig(cfg)
+	input := &ecr.BatchGetImageInput{
+		RegistryId:     aws.String(parseAccountID(ref)),
+		RepositoryName: aws.String(ref.Context().RepositoryStr()),
+		ImageIds: []types.ImageIdentifier{
+			{ImageTag: aws.String(ref.Identifier())},
+		},
+	}
 
-    result, err := ecrClient.BatchGetImage(context.TODO(), input)
-    if err != nil {
-        logrus.Warningf("Error retrieving image from ECR: %v", err)
-        return false
-    }
+	result, err := ecrClient.BatchGetImage(context.TODO(), input)
+	if err != nil {
+		logrus.Warningf("Error retrieving image from ECR: %v", err)
+		return false
+	}
 
-    if len(result.Images) > 0 {
-        logrus.Infof("Image '%s' found in ECR.", ref.Context().Name())
-        return true
-    }
+	if len(result.Images) > 0 {
+		logrus.Infof("Image '%s' found in ECR.", ref.Context().Name())
+		return true
+	}
 
-    logrus.Infof("Image '%s' not found in ECR.", ref.Context().Name())
-    return false
+	logrus.Infof("Image '%s' not found in ECR.", ref.Context().Name())
+	return false
 }
