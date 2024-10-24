@@ -38,7 +38,6 @@ func main() {
 	bindAddr := flag.String("bind-address", ":8080", "address:port to bind /metrics endpoint to")
 	namespaceLabels := flag.String("namespace-label", "", "namespace label for checks")
 	insecureSkipVerify := flag.Bool("skip-registry-cert-verification", false, "whether to skip registries' certificate verification")
-	ecrImagesExists := flag.Bool("ecr-images-exists", false, "whether images from ECR in your project")
 	plainHTTP := flag.Bool("allow-plain-http", false, "whether to fallback to HTTP scheme for registries that don't support HTTPS") // named after the ctr cli flag
 	defaultRegistry := flag.String("default-registry", "", fmt.Sprintf("default registry to use in absence of a fully qualified image name, defaults to %q", name.DefaultRegistry))
 	flag.Var(&cp, "capath", "path to a file that contains CA certificates in the PEM format") // named after the curl cli flag
@@ -87,7 +86,6 @@ func main() {
 		stopCh.Done(),
 		kubeClient,
 		*insecureSkipVerify,
-		*ecrImagesExists,
 		*plainHTTP,
 		cp,
 		forceCheckDisabledControllerKindsParser.ParsedKinds,

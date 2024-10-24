@@ -50,7 +50,6 @@ type registryCheckerConfig struct {
 	defaultRegistry string
 	plainHTTP       bool
 	mirrorsMap      map[string]string
-	ecrImagesExists bool
 }
 
 type Checker struct {
@@ -79,7 +78,6 @@ func NewChecker(
 	stopCh <-chan struct{},
 	kubeClient *kubernetes.Clientset,
 	skipVerify bool,
-	ecrImagesExists bool,
 	plainHTTP bool,
 	caPths []string,
 	forceCheckDisabledControllerKinds []string,
@@ -131,7 +129,6 @@ func NewChecker(
 			defaultRegistry: defaultRegistry,
 			plainHTTP:       plainHTTP,
 			mirrorsMap:      mirrorsMap,
-			ecrImagesExists: ecrImagesExists,
 		},
 	}
 
@@ -323,9 +320,11 @@ func (rc *Checker) checkImageAvailability(log *logrus.Entry, imageName string, k
 		return checkImageNameParseErr(log, err)
 	}
 
-	region := parseRegion(ref)
-	if isImageInEcr(ref, region) && rc.config.ecrImagesExists {
-		return store.Available
+	if strings.Contains(ref.Context().RegistryStr(), "amazonaws.com") {
+		region, _ := parseRegion(ref)
+		if isImageInEcr(ref, region) {
+			return store.Available
+		}
 	}
 
 	imgErr := wait.ExponentialBackoff(wait.Backoff{
@@ -382,28 +381,30 @@ func parseImageName(image string, defaultRegistry string, plainHTTP bool) (name.
 	return ref, nil
 }
 
-func parseAccountID(reference name.Reference) string {
+func parseAccountID(reference name.Reference) (string, error) {
 	registry := reference.Context().RegistryStr()
 
 	parts := strings.Split(registry, ".")
 	if len(parts) > 0 {
 		accountID := parts[0]
-		return accountID
+		return accountID, nil
 	}
 
-	return ""
+	logrus.Infof("Uri '%s' doesn't match the default template while parsing account id.", registry)
+	return "", nil
 }
 
-func parseRegion(reference name.Reference) string {
+func parseRegion(reference name.Reference) (string, error) {
 	registry := reference.Context().RegistryStr()
 
 	parts := strings.Split(registry, ".")
 	if len(parts) > 3 {
 		region := parts[3]
-		return region
+		return region, nil
 	}
 
-	return ""
+	logrus.Infof("Uri '%s' doesn't match the default template while parsing region.", registry)
+	return "", nil
 }
 
 func check(ref name.Reference, kc authn.Keychain, registryTransport http.RoundTripper) (store.AvailabilityMode, error) {
@@ -452,8 +453,9 @@ func isImageInEcr(ref name.Reference, region string) bool {
 	}
 
 	ecrClient := ecr.NewFromConfig(cfg)
+	accountID, _ := parseAccountID(ref)
 	input := &ecr.BatchGetImageInput{
-		RegistryId:     aws.String(parseAccountID(ref)),
+		RegistryId:     aws.String(accountID),
 		RepositoryName: aws.String(ref.Context().RepositoryStr()),
 		ImageIds: []types.ImageIdentifier{
 			{ImageTag: aws.String(ref.Identifier())},
@@ -467,7 +469,6 @@ func isImageInEcr(ref name.Reference, region string) bool {
 	}
 
 	if len(result.Images) > 0 {
-		logrus.Infof("Image '%s' found in ECR.", ref.Context().Name())
 		return true
 	}
 
