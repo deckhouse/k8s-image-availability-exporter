@@ -87,7 +87,7 @@ func main() {
 		stopCh.Done(),
 		kubeClient,
 		*insecureSkipVerify,
-		*ecrImagesExists
+		*ecrImagesExists,
 		*plainHTTP,
 		cp,
 		forceCheckDisabledControllerKindsParser.ParsedKinds,

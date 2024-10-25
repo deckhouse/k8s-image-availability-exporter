@@ -328,7 +328,7 @@ func (rc *Checker) checkImageAvailability(log *logrus.Entry, imageName string, k
 		if err != nil {
 			return checkImageNameParseErr(log, err)
 		}
-		if isImageInEcr(ref, region){
+		if isImageInEcr(ref, region) {
 			return store.Available
 		}
 	}
