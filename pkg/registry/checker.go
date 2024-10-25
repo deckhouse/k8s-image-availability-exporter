@@ -50,6 +50,7 @@ type registryCheckerConfig struct {
 	defaultRegistry string
 	plainHTTP       bool
 	mirrorsMap      map[string]string
+	ecrImagesExists bool
 }
 
 type Checker struct {
@@ -79,6 +80,7 @@ func NewChecker(
 	kubeClient *kubernetes.Clientset,
 	skipVerify bool,
 	plainHTTP bool,
+	ecrImagesExists bool,
 	caPths []string,
 	forceCheckDisabledControllerKinds []string,
 	ignoredImages []regexp.Regexp,
@@ -129,6 +131,7 @@ func NewChecker(
 			defaultRegistry: defaultRegistry,
 			plainHTTP:       plainHTTP,
 			mirrorsMap:      mirrorsMap,
+			ecrImagesExists: ecrImagesExists,
 		},
 	}
 
@@ -320,9 +323,12 @@ func (rc *Checker) checkImageAvailability(log *logrus.Entry, imageName string, k
 		return checkImageNameParseErr(log, err)
 	}
 
-	if strings.Contains(ref.Context().RegistryStr(), "amazonaws.com") {
-		region, _ := parseRegion(ref)
-		if isImageInEcr(ref, region) {
+	if rc.config.ecrImagesExists && strings.Contains(ref.Context().RegistryStr(), "amazonaws.com") {
+		region, err := parseRegion(ref)
+		if err != nil {
+			return checkImageNameParseErr(log, err)
+		}
+		if isImageInEcr(ref, region){
 			return store.Available
 		}
 	}
@@ -390,8 +396,7 @@ func parseAccountID(reference name.Reference) (string, error) {
 		return accountID, nil
 	}
 
-	logrus.Infof("Uri '%s' doesn't match the default template while parsing account id.", registry)
-	return "", nil
+	return "", fmt.Errorf("something went wrong with URI \"%s\" while parsing account id", registry)
 }
 
 func parseRegion(reference name.Reference) (string, error) {
@@ -403,8 +408,7 @@ func parseRegion(reference name.Reference) (string, error) {
 		return region, nil
 	}
 
-	logrus.Infof("Uri '%s' doesn't match the default template while parsing region.", registry)
-	return "", nil
+	return "", fmt.Errorf("URI \"%s\" doesn't match the default template while parsing region", registry)
 }
 
 func awsClient(region string) (*ecr.Client, error) {
