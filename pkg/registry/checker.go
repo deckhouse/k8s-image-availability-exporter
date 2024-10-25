@@ -407,6 +407,16 @@ func parseRegion(reference name.Reference) (string, error) {
 	return "", nil
 }
 
+func awsClient(region string) (*ecr.Client, error) {
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+	if err != nil {
+		return nil, err
+	}
+
+	client := ecr.NewFromConfig(cfg)
+	return client, nil
+}
+
 func check(ref name.Reference, kc authn.Keychain, registryTransport http.RoundTripper) (store.AvailabilityMode, error) {
 	var imgErr error
 
@@ -446,13 +456,12 @@ func check(ref name.Reference, kc authn.Keychain, registryTransport http.RoundTr
 }
 
 func isImageInEcr(ref name.Reference, region string) bool {
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+	ecrClient, err := awsClient(region)
 	if err != nil {
-		logrus.Errorf("Failed to load AWS SDK config: %v", err)
+		logrus.Warningf("Failed to load aws configuration: %v", err)
 		return false
 	}
 
-	ecrClient := ecr.NewFromConfig(cfg)
 	accountID, _ := parseAccountID(ref)
 	input := &ecr.BatchGetImageInput{
 		RegistryId:     aws.String(accountID),
