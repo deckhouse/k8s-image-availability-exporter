@@ -53,6 +53,12 @@ type registryCheckerConfig struct {
 	ecrImagesExists bool
 }
 
+type ECRDetails struct {
+	AccountID string
+	Region    string
+	Domain    string
+}
+
 type Checker struct {
 	imageStore *store.ImageStore
 
@@ -323,14 +329,13 @@ func (rc *Checker) checkImageAvailability(log *logrus.Entry, imageName string, k
 		return checkImageNameParseErr(log, err)
 	}
 
-	if rc.config.ecrImagesExists && strings.Contains(ref.Context().RegistryStr(), "amazonaws.com") {
-		region, err := parseRegion(ref)
-		if err != nil {
-			return checkImageNameParseErr(log, err)
-		}
-		if isImageInEcr(ref, region) {
+	ecrDetails, err := parseECRDetails(ref.Context().RegistryStr())
+	if err == nil && rc.config.ecrImagesExists {
+		if rc.isImageInEcr(log, ref, ecrDetails) {
 			return store.Available
 		}
+	} else if err != nil {
+		log.Error(err)
 	}
 
 	imgErr := wait.ExponentialBackoff(wait.Backoff{
@@ -387,32 +392,51 @@ func parseImageName(image string, defaultRegistry string, plainHTTP bool) (name.
 	return ref, nil
 }
 
-func parseAccountID(reference name.Reference) (string, error) {
-	registry := reference.Context().RegistryStr()
-
-	parts := strings.Split(registry, ".")
-	if len(parts) > 0 {
-		accountID := parts[0]
-		return accountID, nil
+func parseECRDetails(registryStr string) (ECRDetails, error) {
+	parts := strings.SplitN(registryStr, ".", 5)
+	if len(parts) <= 3 || !strings.Contains(registryStr, "amazonaws.com") {
+		return ECRDetails{}, fmt.Errorf("%q doesn't match the ECR template", registryStr)
 	}
 
-	return "", fmt.Errorf("something went wrong with URI \"%s\" while parsing account id", registry)
+	return ECRDetails{
+		AccountID: parts[0],
+		Region:    parts[3],
+		Domain:    registryStr,
+	}, nil
 }
 
-func parseRegion(reference name.Reference) (string, error) {
-	registry := reference.Context().RegistryStr()
-
-	parts := strings.Split(registry, ".")
-	if len(parts) > 3 {
-		region := parts[3]
-		return region, nil
+func (rc *Checker) isImageInEcr(log *logrus.Entry, ref name.Reference, details ECRDetails) bool {
+	ctx := context.TODO()
+	ecrClient, err := rc.awsRegionalClient(ctx, details.Region)
+	if err != nil {
+		log.Warningf("Failed to load aws configuration: %v", err)
+		return false
 	}
 
-	return "", fmt.Errorf("URI \"%s\" doesn't match the default template while parsing region", registry)
+	input := &ecr.BatchGetImageInput{
+		RegistryId:     aws.String(details.AccountID),
+		RepositoryName: aws.String(ref.Context().RepositoryStr()),
+		ImageIds: []types.ImageIdentifier{
+			{ImageTag: aws.String(ref.Identifier())},
+		},
+	}
+
+	result, err := ecrClient.BatchGetImage(ctx, input)
+	if err != nil {
+		log.Warningf("Error retrieving image from ECR: %v", err)
+		return false
+	}
+
+	if len(result.Images) > 0 {
+		return true
+	}
+
+	log.Infof("Image %q not found in ECR.", ref.Context().Name())
+	return false
 }
 
-func awsClient(region string) (*ecr.Client, error) {
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+func (rc *Checker) awsRegionalClient(ctx context.Context, region string) (*ecr.Client, error) {
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
 	if err != nil {
 		return nil, err
 	}
@@ -457,34 +481,4 @@ func check(ref name.Reference, kc authn.Keychain, registryTransport http.RoundTr
 	}
 
 	return availMode, imgErr
-}
-
-func isImageInEcr(ref name.Reference, region string) bool {
-	ecrClient, err := awsClient(region)
-	if err != nil {
-		logrus.Warningf("Failed to load aws configuration: %v", err)
-		return false
-	}
-
-	accountID, _ := parseAccountID(ref)
-	input := &ecr.BatchGetImageInput{
-		RegistryId:     aws.String(accountID),
-		RepositoryName: aws.String(ref.Context().RepositoryStr()),
-		ImageIds: []types.ImageIdentifier{
-			{ImageTag: aws.String(ref.Identifier())},
-		},
-	}
-
-	result, err := ecrClient.BatchGetImage(context.TODO(), input)
-	if err != nil {
-		logrus.Warningf("Error retrieving image from ECR: %v", err)
-		return false
-	}
-
-	if len(result.Images) > 0 {
-		return true
-	}
-
-	logrus.Infof("Image '%s' not found in ECR.", ref.Context().Name())
-	return false
 }
