@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flant/k8s-image-availability-exporter/pkg/providers"
 	"github.com/flant/k8s-image-availability-exporter/pkg/version"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
@@ -20,10 +21,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/ecr"
-	"github.com/aws/aws-sdk-go-v2/service/ecr/types"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/sirupsen/logrus"
@@ -50,13 +47,6 @@ type registryCheckerConfig struct {
 	defaultRegistry string
 	plainHTTP       bool
 	mirrorsMap      map[string]string
-	ecrImagesExists bool
-}
-
-type ECRDetails struct {
-	AccountID string
-	Region    string
-	Domain    string
 }
 
 type Checker struct {
@@ -86,7 +76,6 @@ func NewChecker(
 	kubeClient *kubernetes.Clientset,
 	skipVerify bool,
 	plainHTTP bool,
-	ecrImagesExists bool,
 	caPths []string,
 	forceCheckDisabledControllerKinds []string,
 	ignoredImages []regexp.Regexp,
@@ -137,7 +126,6 @@ func NewChecker(
 			defaultRegistry: defaultRegistry,
 			plainHTTP:       plainHTTP,
 			mirrorsMap:      mirrorsMap,
-			ecrImagesExists: ecrImagesExists,
 		},
 	}
 
@@ -329,13 +317,13 @@ func (rc *Checker) checkImageAvailability(log *logrus.Entry, imageName string, k
 		return checkImageNameParseErr(log, err)
 	}
 
-	ecrDetails, err := parseECRDetails(ref.Context().RegistryStr())
-	if err == nil && rc.config.ecrImagesExists {
-		if rc.isImageInEcr(log, ref, ecrDetails) {
-			return store.Available
+	if providers.IsEcrURL(ref.Context().RegistryStr()) {
+		ecrAuth, err := providers.GetECRAuthKeychain(context.Background(), ref.Context().RegistryStr())
+		if err != nil {
+			log.WithError(err).Error("Error while getting token")
+			return store.UnknownError
 		}
-	} else if err != nil {
-		log.Error(err)
+		kc = ecrAuth
 	}
 
 	imgErr := wait.ExponentialBackoff(wait.Backoff{
@@ -390,59 +378,6 @@ func parseImageName(image string, defaultRegistry string, plainHTTP bool) (name.
 	}
 
 	return ref, nil
-}
-
-func parseECRDetails(registryStr string) (ECRDetails, error) {
-	parts := strings.SplitN(registryStr, ".", 5)
-	if len(parts) <= 3 || !strings.Contains(registryStr, "amazonaws.com") {
-		return ECRDetails{}, fmt.Errorf("%q doesn't match the ECR template", registryStr)
-	}
-
-	return ECRDetails{
-		AccountID: parts[0],
-		Region:    parts[3],
-		Domain:    registryStr,
-	}, nil
-}
-
-func (rc *Checker) isImageInEcr(log *logrus.Entry, ref name.Reference, details ECRDetails) bool {
-	ctx := context.TODO()
-	ecrClient, err := rc.awsRegionalClient(ctx, details.Region)
-	if err != nil {
-		log.Warningf("Failed to load aws configuration: %v", err)
-		return false
-	}
-
-	input := &ecr.BatchGetImageInput{
-		RegistryId:     aws.String(details.AccountID),
-		RepositoryName: aws.String(ref.Context().RepositoryStr()),
-		ImageIds: []types.ImageIdentifier{
-			{ImageTag: aws.String(ref.Identifier())},
-		},
-	}
-
-	result, err := ecrClient.BatchGetImage(ctx, input)
-	if err != nil {
-		log.Warningf("Error retrieving image from ECR: %v", err)
-		return false
-	}
-
-	if len(result.Images) > 0 {
-		return true
-	}
-
-	log.Infof("Image %q not found in ECR.", ref.Context().Name())
-	return false
-}
-
-func (rc *Checker) awsRegionalClient(ctx context.Context, region string) (*ecr.Client, error) {
-	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
-	if err != nil {
-		return nil, err
-	}
-
-	client := ecr.NewFromConfig(cfg)
-	return client, nil
 }
 
 func check(ref name.Reference, kc authn.Keychain, registryTransport http.RoundTripper) (store.AvailabilityMode, error) {
