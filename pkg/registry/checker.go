@@ -60,6 +60,8 @@ type Checker struct {
 	cronJobsInformer       batchv1informers.CronJobInformer
 	secretsInformer        corev1informers.SecretInformer
 
+	amazonProvider providers.ECRProvider
+
 	controllerIndexers ControllerIndexers
 
 	ignoredImagesRegex []regexp.Regexp
@@ -115,6 +117,8 @@ func NewChecker(
 		daemonSetsInformer:     informerFactory.Apps().V1().DaemonSets(),
 		cronJobsInformer:       informerFactory.Batch().V1().CronJobs(),
 		secretsInformer:        informerFactory.Core().V1().Secrets(),
+
+		amazonProvider: providers.NewECRProvider(),
 
 		ignoredImagesRegex: ignoredImages,
 
@@ -317,8 +321,8 @@ func (rc *Checker) checkImageAvailability(log *logrus.Entry, imageName string, k
 		return checkImageNameParseErr(log, err)
 	}
 
-	if providers.IsEcrURL(ref.Context().RegistryStr()) {
-		ecrAuth, err := providers.GetECRAuthKeychain(context.Background(), ref.Context().RegistryStr())
+	if rc.amazonProvider.IsEcrURL(ref.Context().RegistryStr()) {
+		ecrAuth, err := rc.amazonProvider.GetECRAuthKeychain(context.Background(), ref.Context().RegistryStr())
 		if err != nil {
 			log.WithError(err).Error("Error while getting token")
 			return store.UnknownError

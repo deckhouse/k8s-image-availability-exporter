@@ -11,26 +11,24 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 )
 
-type ECRDetails struct {
-	Region string
-	Domain string
+type ECRProvider interface {
+	GetECRAuthKeychain(ctx context.Context, registryStr string) (authn.Keychain, error)
+	IsEcrURL(url string) bool
 }
 
-type customKeychain struct {
-	authenticator authn.Authenticator
+type awsECRProvider struct{}
+
+func NewECRProvider() ECRProvider {
+	return &awsECRProvider{}
 }
 
-func (kc *customKeychain) Resolve(_ authn.Resource) (authn.Authenticator, error) {
-	return kc.authenticator, nil
-}
-
-func GetECRAuthKeychain(ctx context.Context, registryStr string) (authn.Keychain, error) {
+func (p *awsECRProvider) GetECRAuthKeychain(ctx context.Context, registryStr string) (authn.Keychain, error) {
 	ecrDetails, err := parseECRDetails(registryStr)
 	if err != nil {
 		return nil, err
 	}
 
-	ecrClient, err := awsRegionalClient(ctx, ecrDetails.Region)
+	ecrClient, err := awsRegionalClient(ctx, ecrDetails)
 	if err != nil {
 		return nil, fmt.Errorf("error loading AWS config: %w", err)
 	}
@@ -62,7 +60,7 @@ func GetECRAuthKeychain(ctx context.Context, registryStr string) (authn.Keychain
 	return &customKeychain{authenticator: auth}, nil
 }
 
-func IsEcrURL(url string) bool {
+func (p *awsECRProvider) IsEcrURL(url string) bool {
 	parts := strings.SplitN(url, ".", 5)
 	if len(parts) <= 3 || !strings.Contains(url, "amazonaws.com") {
 		return false
@@ -70,12 +68,9 @@ func IsEcrURL(url string) bool {
 	return true
 }
 
-func parseECRDetails(registryStr string) (ECRDetails, error) {
+func parseECRDetails(registryStr string) (string, error) {
 	parts := strings.SplitN(registryStr, ".", 5)
-	return ECRDetails{
-		Region: parts[3],
-		Domain: registryStr,
-	}, nil
+	return parts[3], nil
 }
 
 func awsRegionalClient(ctx context.Context, region string) (*ecr.Client, error) {
@@ -86,4 +81,12 @@ func awsRegionalClient(ctx context.Context, region string) (*ecr.Client, error) 
 
 	client := ecr.NewFromConfig(cfg)
 	return client, nil
+}
+
+type customKeychain struct {
+	authenticator authn.Authenticator
+}
+
+func (kc *customKeychain) Resolve(_ authn.Resource) (authn.Authenticator, error) {
+	return kc.authenticator, nil
 }
