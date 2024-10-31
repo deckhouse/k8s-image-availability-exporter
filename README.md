@@ -161,8 +161,6 @@ Usage of k8s-image-availability-exporter:
     	namespace label for checks
   -skip-registry-cert-verification
     	whether to skip registries' certificate verification
-  -ecr-images-exists
-      whether images from ECR in your cluster
 ```
 
 ## Metrics
