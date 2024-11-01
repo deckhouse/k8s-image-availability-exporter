@@ -1,4 +1,4 @@
-package providers
+package amazon
 
 import (
 	"context"
@@ -11,17 +11,13 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 )
 
-type ECRProvider interface {
-	GetAuthKeychain(ctx context.Context, registryStr string) (authn.Keychain, error)
+type AwsECRProvider struct{}
+
+func NewECRProvider() *AwsECRProvider {
+	return &AwsECRProvider{}
 }
 
-type awsECRProvider struct{}
-
-func NewECRProvider() ECRProvider {
-	return &awsECRProvider{}
-}
-
-func (p *awsECRProvider) GetAuthKeychain(ctx context.Context, registryStr string) (authn.Keychain, error) {
+func (p *AwsECRProvider) GetAuthKeychain(ctx context.Context, registryStr string) (authn.Keychain, error) {
 	ecrClient, err := awsRegionalClient(ctx, parseECRDetails(registryStr))
 	if err != nil {
 		return nil, fmt.Errorf("error loading AWS config: %w", err)
@@ -56,6 +52,9 @@ func (p *awsECRProvider) GetAuthKeychain(ctx context.Context, registryStr string
 
 func parseECRDetails(registryStr string) string {
 	parts := strings.SplitN(registryStr, ".", 5)
+	if len(parts) < 3 {
+		return ""
+	}
 	return parts[3]
 }
 

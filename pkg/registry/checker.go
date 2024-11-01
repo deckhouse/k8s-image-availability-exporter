@@ -69,8 +69,6 @@ type Checker struct {
 	kubeClient *kubernetes.Clientset
 
 	config registryCheckerConfig
-
-	providers []providers.ContainerRegistryProvider
 }
 
 func NewChecker(
@@ -109,8 +107,6 @@ func NewChecker(
 
 	roundTripper := transport.NewUserAgent(customTransport, fmt.Sprintf("k8s-image-availability-exporter/%s", version.Version))
 
-	ECRProvider := providers.NewECRProvider()
-
 	rc := &Checker{
 		serviceAccountInformer: informerFactory.Core().V1().ServiceAccounts(),
 		namespacesInformer:     informerFactory.Core().V1().Namespaces(),
@@ -130,10 +126,6 @@ func NewChecker(
 			defaultRegistry: defaultRegistry,
 			plainHTTP:       plainHTTP,
 			mirrorsMap:      mirrorsMap,
-		},
-
-		providers: []providers.ContainerRegistryProvider{
-			ECRProvider,
 		},
 	}
 
@@ -324,10 +316,12 @@ func (rc *Checker) checkImageAvailability(log *logrus.Entry, imageName string, k
 	if err != nil {
 		return checkImageNameParseErr(log, err)
 	}
-
-	kChain, err := providers.FindProviderKeychain(context.Background(), ref.Context().RegistryStr(), rc.providers)
+	p, err := providers.GetProvider(ref.Context().RegistryStr())
 	if err == nil {
-		kc = kChain
+		kChain, err := p.GetAuthKeychain(context.TODO(), ref.Context().RegistryStr())
+		if err == nil {
+			kc = kChain
+		}
 	}
 
 	imgErr := wait.ExponentialBackoff(wait.Backoff{
