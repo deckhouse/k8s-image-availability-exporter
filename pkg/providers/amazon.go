@@ -12,8 +12,7 @@ import (
 )
 
 type ECRProvider interface {
-	GetECRAuthKeychain(ctx context.Context, registryStr string) (authn.Keychain, error)
-	IsEcrURL(url string) bool
+	GetAuthKeychain(ctx context.Context, registryStr string) (authn.Keychain, error)
 }
 
 type awsECRProvider struct{}
@@ -22,13 +21,8 @@ func NewECRProvider() ECRProvider {
 	return &awsECRProvider{}
 }
 
-func (p *awsECRProvider) GetECRAuthKeychain(ctx context.Context, registryStr string) (authn.Keychain, error) {
-	ecrDetails, err := parseECRDetails(registryStr)
-	if err != nil {
-		return nil, err
-	}
-
-	ecrClient, err := awsRegionalClient(ctx, ecrDetails)
+func (p *awsECRProvider) GetAuthKeychain(ctx context.Context, registryStr string) (authn.Keychain, error) {
+	ecrClient, err := awsRegionalClient(ctx, parseECRDetails(registryStr))
 	if err != nil {
 		return nil, fmt.Errorf("error loading AWS config: %w", err)
 	}
@@ -60,17 +54,9 @@ func (p *awsECRProvider) GetECRAuthKeychain(ctx context.Context, registryStr str
 	return &customKeychain{authenticator: auth}, nil
 }
 
-func (p *awsECRProvider) IsEcrURL(url string) bool {
-	parts := strings.SplitN(url, ".", 5)
-	if len(parts) <= 3 || !strings.Contains(url, "amazonaws.com") {
-		return false
-	}
-	return true
-}
-
-func parseECRDetails(registryStr string) (string, error) {
+func parseECRDetails(registryStr string) string {
 	parts := strings.SplitN(registryStr, ".", 5)
-	return parts[3], nil
+	return parts[3]
 }
 
 func awsRegionalClient(ctx context.Context, region string) (*ecr.Client, error) {

@@ -60,8 +60,6 @@ type Checker struct {
 	cronJobsInformer       batchv1informers.CronJobInformer
 	secretsInformer        corev1informers.SecretInformer
 
-	amazonProvider providers.ECRProvider
-
 	controllerIndexers ControllerIndexers
 
 	ignoredImagesRegex []regexp.Regexp
@@ -71,6 +69,8 @@ type Checker struct {
 	kubeClient *kubernetes.Clientset
 
 	config registryCheckerConfig
+
+	providers []providers.ContainerRegistryProvider
 }
 
 func NewChecker(
@@ -109,6 +109,8 @@ func NewChecker(
 
 	roundTripper := transport.NewUserAgent(customTransport, fmt.Sprintf("k8s-image-availability-exporter/%s", version.Version))
 
+	ECRProvider := providers.NewECRProvider()
+
 	rc := &Checker{
 		serviceAccountInformer: informerFactory.Core().V1().ServiceAccounts(),
 		namespacesInformer:     informerFactory.Core().V1().Namespaces(),
@@ -117,8 +119,6 @@ func NewChecker(
 		daemonSetsInformer:     informerFactory.Apps().V1().DaemonSets(),
 		cronJobsInformer:       informerFactory.Batch().V1().CronJobs(),
 		secretsInformer:        informerFactory.Core().V1().Secrets(),
-
-		amazonProvider: providers.NewECRProvider(),
 
 		ignoredImagesRegex: ignoredImages,
 
@@ -130,6 +130,10 @@ func NewChecker(
 			defaultRegistry: defaultRegistry,
 			plainHTTP:       plainHTTP,
 			mirrorsMap:      mirrorsMap,
+		},
+
+		providers: []providers.ContainerRegistryProvider{
+			ECRProvider,
 		},
 	}
 
@@ -321,13 +325,9 @@ func (rc *Checker) checkImageAvailability(log *logrus.Entry, imageName string, k
 		return checkImageNameParseErr(log, err)
 	}
 
-	if rc.amazonProvider.IsEcrURL(ref.Context().RegistryStr()) {
-		ecrAuth, err := rc.amazonProvider.GetECRAuthKeychain(context.Background(), ref.Context().RegistryStr())
-		if err != nil {
-			log.WithError(err).Error("Error while getting token")
-			return store.UnknownError
-		}
-		kc = ecrAuth
+	kChain, err := providers.FindProviderKeychain(context.Background(), ref.Context().RegistryStr(), rc.providers)
+	if err == nil {
+		kc = kChain
 	}
 
 	imgErr := wait.ExponentialBackoff(wait.Backoff{
