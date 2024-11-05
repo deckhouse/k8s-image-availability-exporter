@@ -1,14 +1,11 @@
 package registry
 
 import (
-	"context"
 	"fmt"
 	"slices"
 	"strings"
 
 	"github.com/flant/k8s-image-availability-exporter/pkg/store"
-	"github.com/google/go-containerregistry/pkg/authn"
-	kubeauth "github.com/google/go-containerregistry/pkg/authn/kubernetes"
 	"github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -257,7 +254,7 @@ func (ci ControllerIndexers) GetContainerInfosForImage(image string) (ret []stor
 	return
 }
 
-func (ci ControllerIndexers) GetKeychainForImage(image string) authn.Keychain {
+func (ci ControllerIndexers) GetImagePullSecrets(image string) []corev1.Secret {
 	objs := ci.GetObjectsByImageIndex(image)
 
 	var refSet = map[string]struct{}{}
@@ -284,11 +281,5 @@ func (ci ControllerIndexers) GetKeychainForImage(image string) authn.Keychain {
 	if len(dereferencedPullSecrets) == 0 {
 		return nil
 	}
-
-	kc, err := kubeauth.NewFromPullSecrets(context.TODO(), dereferencedPullSecrets)
-	if err != nil {
-		logrus.Panic(err)
-	}
-
-	return kc
+	return dereferencedPullSecrets
 }

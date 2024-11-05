@@ -6,18 +6,18 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"github.com/flant/k8s-image-availability-exporter/pkg/providers"
+	"github.com/flant/k8s-image-availability-exporter/pkg/version"
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/cache"
 	"net/http"
 	"os"
 	"regexp"
 	"strings"
 	"time"
-
-	"github.com/flant/k8s-image-availability-exporter/pkg/providers"
-	"github.com/flant/k8s-image-availability-exporter/pkg/version"
-	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/cache"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -69,6 +69,8 @@ type Checker struct {
 	kubeClient *kubernetes.Clientset
 
 	config registryCheckerConfig
+
+	providerRegistry providers.ProviderRegistry
 }
 
 func NewChecker(
@@ -254,6 +256,12 @@ func NewChecker(
 
 	rc.imageStore.RunGC(rc.controllerIndexers.GetContainerInfosForImage)
 
+	pullSecretsGetter := func(image string) []corev1.Secret {
+		return rc.controllerIndexers.GetImagePullSecrets(image)
+	}
+	pc := providers.NewProviderChain(pullSecretsGetter)
+	rc.providerRegistry = pc
+
 	return rc
 }
 
@@ -291,7 +299,7 @@ imagesLoop:
 }
 
 func (rc *Checker) Check(imageName string) store.AvailabilityMode {
-	keyChain := rc.controllerIndexers.GetKeychainForImage(imageName)
+	keyChain := rc.providerRegistry.GetAuthKeychain(imageName)
 
 	log := logrus.WithField("image_name", imageName)
 	return rc.checkImageAvailability(log, imageName, keyChain)
@@ -315,13 +323,6 @@ func (rc *Checker) checkImageAvailability(log *logrus.Entry, imageName string, k
 	ref, err := parseImageName(imageName, rc.config.defaultRegistry, rc.config.plainHTTP)
 	if err != nil {
 		return checkImageNameParseErr(log, err)
-	}
-	p, err := providers.GetProvider(ref.Context().RegistryStr())
-	if err == nil {
-		kChain, err := p.GetAuthKeychain(context.TODO(), ref.Context().RegistryStr())
-		if err == nil {
-			kc = kChain
-		}
 	}
 
 	imgErr := wait.ExponentialBackoff(wait.Backoff{

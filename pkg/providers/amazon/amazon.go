@@ -3,51 +3,54 @@ package amazon
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
 	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/sirupsen/logrus"
 )
 
-type AwsECRProvider struct{}
+type Provider struct{}
 
-func NewECRProvider() *AwsECRProvider {
-	return &AwsECRProvider{}
+func NewProvider() *Provider {
+	return &Provider{}
 }
 
-func (p *AwsECRProvider) GetAuthKeychain(ctx context.Context, registryStr string) (authn.Keychain, error) {
-	ecrClient, err := awsRegionalClient(ctx, parseECRDetails(registryStr))
+func (p Provider) GetAuthKeychain(registryStr string) authn.Keychain {
+	ecrClient, err := awsRegionalClient(context.TODO(), parseECRDetails(registryStr))
 	if err != nil {
-		return nil, fmt.Errorf("error loading AWS config: %w", err)
+		logrus.Panic(err)
 	}
 
-	authTokenOutput, err := ecrClient.GetAuthorizationToken(ctx, &ecr.GetAuthorizationTokenInput{})
+	authTokenOutput, err := ecrClient.GetAuthorizationToken(context.TODO(), &ecr.GetAuthorizationTokenInput{})
 	if err != nil {
-		return nil, fmt.Errorf("error getting ECR authorization token: %w", err)
+		logrus.Panic(err)
 	}
 
 	if len(authTokenOutput.AuthorizationData) == 0 {
-		return nil, fmt.Errorf("no authorization data received from ECR")
+		logrus.Panic("no authorization data received from ECR")
+		return nil
 	}
 
 	authData := authTokenOutput.AuthorizationData[0]
 	decodedToken, err := base64.StdEncoding.DecodeString(*authData.AuthorizationToken)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding authorization token: %w", err)
+		logrus.Panic("error decoding authorization token: %w", err)
+		return nil
 	}
 
 	credentials := strings.SplitN(string(decodedToken), ":", 2)
 	if len(credentials) != 2 {
-		return nil, fmt.Errorf("invalid authorization token format")
+		logrus.Panic("invalid authorization token format")
+		return nil
 	}
 	authConfig := authn.AuthConfig{
 		Username: credentials[0],
 		Password: credentials[1],
 	}
 	auth := authn.FromConfig(authConfig)
-	return &customKeychain{authenticator: auth}, nil
+	return &customKeychain{authenticator: auth}
 }
 
 func parseECRDetails(registryStr string) string {
