@@ -3,8 +3,8 @@ package k8s
 import (
 	"context"
 	kubeauth "github.com/google/go-containerregistry/pkg/authn/kubernetes"
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	"fmt"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 )
@@ -19,11 +19,11 @@ func NewProvider(pullSecretsGetter func(image string) []corev1.Secret) *Provider
 	}
 }
 
-func (p Provider) GetAuthKeychain(registryStr string) authn.Keychain {
+func (p Provider) GetAuthKeychain(registryStr string) (authn.Keychain, error) {
 	dereferencedPullSecrets := p.pullSecretsGetter(registryStr)
 	kc, err := kubeauth.NewFromPullSecrets(context.TODO(), dereferencedPullSecrets)
 	if err != nil {
-		logrus.Panic(err)
+		return nil, fmt.Errorf("error while processing keychain from secrets: %w", err)
 	}
-	return kc
+	return kc, nil
 }

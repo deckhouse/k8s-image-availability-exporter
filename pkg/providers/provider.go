@@ -10,7 +10,7 @@ import (
 )
 
 type Provider interface {
-	GetAuthKeychain(registryStr string) authn.Keychain
+	GetAuthKeychain(registryStr string) (authn.Keychain, error)
 }
 
 type ProviderRegistry map[string]Provider
@@ -24,7 +24,7 @@ func NewProviderChain(pullSecretsGetter func(image string) []corev1.Secret) Prov
 
 type ImagePullSecretsFunc func(image string) []corev1.Secret
 
-func (p ProviderRegistry) GetAuthKeychain(registryStr string) authn.Keychain {
+func (p ProviderRegistry) GetAuthKeychain(registryStr string) (authn.Keychain, error) {
 	switch {
 	case strings.Contains(registryStr, "amazonaws.com"):
 		return p["amazon"].GetAuthKeychain(registryStr)

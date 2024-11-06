@@ -299,8 +299,10 @@ imagesLoop:
 }
 
 func (rc *Checker) Check(imageName string) store.AvailabilityMode {
-	keyChain := rc.providerRegistry.GetAuthKeychain(imageName)
-
+	keyChain, err := rc.providerRegistry.GetAuthKeychain(imageName)
+	if err != nil {
+		panic(err)
+	}
 	log := logrus.WithField("image_name", imageName)
 	return rc.checkImageAvailability(log, imageName, keyChain)
 }

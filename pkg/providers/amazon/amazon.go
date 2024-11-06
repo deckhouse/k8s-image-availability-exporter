@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/base64"
 	"strings"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
 	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/sirupsen/logrus"
 )
 
 type Provider struct{}
@@ -17,40 +17,38 @@ func NewProvider() *Provider {
 	return &Provider{}
 }
 
-func (p Provider) GetAuthKeychain(registryStr string) authn.Keychain {
+func (p Provider) GetAuthKeychain(registryStr string) (authn.Keychain, error) {
 	ecrClient, err := awsRegionalClient(context.TODO(), parseECRDetails(registryStr))
 	if err != nil {
-		logrus.Panic(err)
+		return nil, fmt.Errorf("error loading AWS config: %w", err)
 	}
 
 	authTokenOutput, err := ecrClient.GetAuthorizationToken(context.TODO(), &ecr.GetAuthorizationTokenInput{})
 	if err != nil {
-		logrus.Panic(err)
+		return nil, fmt.Errorf("error getting ECR authorization token: %w", err)
 	}
 
+
 	if len(authTokenOutput.AuthorizationData) == 0 {
-		logrus.Panic("no authorization data received from ECR")
-		return nil
+		return nil, fmt.Errorf("no authorization data received from ECR")
 	}
 
 	authData := authTokenOutput.AuthorizationData[0]
 	decodedToken, err := base64.StdEncoding.DecodeString(*authData.AuthorizationToken)
 	if err != nil {
-		logrus.Panic("error decoding authorization token: %w", err)
-		return nil
+		return nil, fmt.Errorf("error decoding authorization token: %w", err)
 	}
 
 	credentials := strings.SplitN(string(decodedToken), ":", 2)
 	if len(credentials) != 2 {
-		logrus.Panic("invalid authorization token format")
-		return nil
+		return nil, fmt.Errorf("invalid authorization token format")
 	}
 	authConfig := authn.AuthConfig{
 		Username: credentials[0],
 		Password: credentials[1],
 	}
 	auth := authn.FromConfig(authConfig)
-	return &customKeychain{authenticator: auth}
+	return &customKeychain{authenticator: auth}, nil
 }
 
 func parseECRDetails(registryStr string) string {
