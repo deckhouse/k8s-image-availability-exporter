@@ -3,8 +3,8 @@ package amazon
 import (
 	"context"
 	"encoding/base64"
-	"strings"
 	"fmt"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
@@ -27,7 +27,6 @@ func (p Provider) GetAuthKeychain(registryStr string) (authn.Keychain, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error getting ECR authorization token: %w", err)
 	}
-
 
 	if len(authTokenOutput.AuthorizationData) == 0 {
 		return nil, fmt.Errorf("no authorization data received from ECR")

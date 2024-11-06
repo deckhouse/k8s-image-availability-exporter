@@ -2,9 +2,9 @@ package k8s
 
 import (
 	"context"
+	"fmt"
 	kubeauth "github.com/google/go-containerregistry/pkg/authn/kubernetes"
 	corev1 "k8s.io/api/core/v1"
-	"fmt"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 )
