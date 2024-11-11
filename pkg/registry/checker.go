@@ -302,7 +302,7 @@ func (rc *Checker) Check(imageName string) store.AvailabilityMode {
 	keyChain, err := rc.providerRegistry.GetAuthKeychain(imageName)
 	if err != nil {
 		logrus.Warn("error while getting keychain for: ", err)
-		return store.UnknownError
+		return store.AuthnFailure
 	}
 	log := logrus.WithField("image_name", imageName)
 	return rc.checkImageAvailability(log, imageName, keyChain)
