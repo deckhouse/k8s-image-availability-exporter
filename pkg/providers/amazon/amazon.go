@@ -72,6 +72,6 @@ type customKeychain struct {
 	authenticator authn.Authenticator
 }
 
-func (c *customKeychain) Resolve(resource authn.Resource) (authn.Authenticator, error) {
-	return c.authenticator, nil
+func (kc *customKeychain) Resolve(_ authn.Resource) (authn.Authenticator, error) {
+	return kc.authenticator, nil
 }
