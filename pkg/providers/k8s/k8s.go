@@ -19,8 +19,8 @@ func NewProvider(pullSecretsGetter func(image string) []corev1.Secret) *Provider
 	}
 }
 
-func (p Provider) GetAuthKeychain(registryStr string) (authn.Keychain, error) {
-	dereferencedPullSecrets := p.pullSecretsGetter(registryStr)
+func (p Provider) GetAuthKeychain(registry string) (authn.Keychain, error) {
+	dereferencedPullSecrets := p.pullSecretsGetter(registry)
 	kc, err := kubeauth.NewFromPullSecrets(context.TODO(), dereferencedPullSecrets)
 	if err != nil {
 		return nil, fmt.Errorf("error while processing keychain from secrets: %w", err)

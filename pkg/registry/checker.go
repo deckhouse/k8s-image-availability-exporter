@@ -10,7 +10,6 @@ import (
 	"github.com/flant/k8s-image-availability-exporter/pkg/version"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"net/http"
@@ -256,11 +255,7 @@ func NewChecker(
 
 	rc.imageStore.RunGC(rc.controllerIndexers.GetContainerInfosForImage)
 
-	pullSecretsGetter := func(image string) []corev1.Secret {
-		return rc.controllerIndexers.GetImagePullSecrets(image)
-	}
-	pc := providers.NewProviderChain(pullSecretsGetter)
-	rc.providerRegistry = pc
+	rc.providerRegistry = providers.NewProviderChain(rc.controllerIndexers.GetImagePullSecrets)
 
 	return rc
 }

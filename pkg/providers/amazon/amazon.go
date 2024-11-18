@@ -5,27 +5,35 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
 	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 )
-
-type Provider struct{}
-
-func NewProvider() *Provider {
-	return &Provider{}
+type Provider struct {
+	ecrClient      *ecr.Client
+	authToken      *authn.AuthConfig
+	authTokenExpiry time.Time
 }
 
-func (p Provider) GetAuthKeychain(registryStr string) (authn.Keychain, error) {
-	ecrClient, err := awsRegionalClient(context.TODO(), parseECRDetails(registryStr))
-	if err != nil {
-		return nil, fmt.Errorf("error loading AWS config: %w", err)
+func NewProvider() *Provider {
+	cfg, _ := config.LoadDefaultConfig(context.TODO(), config.WithRegion(requestEC2Region()))
+	ecrClient := ecr.NewFromConfig(cfg)
+	return &Provider{ecrClient: ecrClient}
+}
+
+func (p *Provider) GetAuthKeychain(_ string) (authn.Keychain, error) {
+	const bufferPeriod = time.Hour
+
+	if p.authToken != nil && time.Now().Before(p.authTokenExpiry.Add(-bufferPeriod)) {
+		return &customKeychain{authenticator: authn.FromConfig(*p.authToken)}, nil
 	}
 
-	authTokenOutput, err := ecrClient.GetAuthorizationToken(context.TODO(), &ecr.GetAuthorizationTokenInput{})
+	authTokenOutput, err := p.ecrClient.GetAuthorizationToken(context.TODO(), &ecr.GetAuthorizationTokenInput{})
 	if err != nil {
-		return nil, fmt.Errorf("error getting ECR authorization token: %w", err)
+		return nil, err
 	}
 
 	if len(authTokenOutput.AuthorizationData) == 0 {
@@ -35,43 +43,35 @@ func (p Provider) GetAuthKeychain(registryStr string) (authn.Keychain, error) {
 	authData := authTokenOutput.AuthorizationData[0]
 	decodedToken, err := base64.StdEncoding.DecodeString(*authData.AuthorizationToken)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding authorization token: %w", err)
+		return nil, err
 	}
 
 	credentials := strings.SplitN(string(decodedToken), ":", 2)
 	if len(credentials) != 2 {
 		return nil, fmt.Errorf("invalid authorization token format")
 	}
-	authConfig := authn.AuthConfig{
+
+	p.authToken = &authn.AuthConfig{
 		Username: credentials[0],
 		Password: credentials[1],
 	}
-	auth := authn.FromConfig(authConfig)
-	return &customKeychain{authenticator: auth}, nil
+	p.authTokenExpiry = *authData.ExpiresAt
+
+	return &customKeychain{authenticator: authn.FromConfig(*p.authToken)}, nil
 }
 
-func parseECRDetails(registryStr string) string {
-	parts := strings.SplitN(registryStr, ".", 5)
-	if len(parts) < 3 {
-		return ""
-	}
-	return parts[3]
-}
+ 
+func requestEC2Region() string {
+	ec2metadataClient := ec2metadata.New("http://169.254.169.254", 1)
+	metadata := ec2metadataClient.GetNodeMetadata()
 
-func awsRegionalClient(ctx context.Context, region string) (*ecr.Client, error) {
-	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
-	if err != nil {
-		return nil, err
-	}
-
-	client := ecr.NewFromConfig(cfg)
-	return client, nil
+	return metadata.Region
 }
 
 type customKeychain struct {
 	authenticator authn.Authenticator
 }
 
-func (kc *customKeychain) Resolve(_ authn.Resource) (authn.Authenticator, error) {
-	return kc.authenticator, nil
+func (c *customKeychain) Resolve(resource authn.Resource) (authn.Authenticator, error) {
+	return c.authenticator, nil
 }
