@@ -7,14 +7,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
 	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/aws/aws-node-termination-handler/pkg/ec2metadata"
 )
+
 type Provider struct {
-	ecrClient      *ecr.Client
-	authToken      *authn.AuthConfig
+	ecrClient       *ecr.Client
+	authToken       *authn.AuthConfig
 	authTokenExpiry time.Time
 }
 
@@ -60,7 +61,6 @@ func (p *Provider) GetAuthKeychain(_ string) (authn.Keychain, error) {
 	return &customKeychain{authenticator: authn.FromConfig(*p.authToken)}, nil
 }
 
- 
 func requestEC2Region() string {
 	ec2metadataClient := ec2metadata.New("http://169.254.169.254", 1)
 	metadata := ec2metadataClient.GetNodeMetadata()
