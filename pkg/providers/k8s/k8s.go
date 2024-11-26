@@ -11,11 +11,13 @@ import (
 
 type Provider struct {
 	pullSecretsGetter func(image string) []corev1.Secret
+	name              string
 }
 
 func NewProvider(pullSecretsGetter func(image string) []corev1.Secret) *Provider {
 	return &Provider{
 		pullSecretsGetter: pullSecretsGetter,
+		name:              "k8s",
 	}
 }
 
@@ -26,4 +28,7 @@ func (p Provider) GetAuthKeychain(registry string) (authn.Keychain, error) {
 		return nil, fmt.Errorf("error while processing keychain from secrets: %w", err)
 	}
 	return kc, nil
+}
+func (p Provider) GetName() string {
+	return p.name
 }

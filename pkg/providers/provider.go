@@ -4,25 +4,24 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"regexp"
 
-	"github.com/flant/k8s-image-availability-exporter/pkg/providers/amazon"
-	"github.com/flant/k8s-image-availability-exporter/pkg/providers/k8s"
 	"github.com/google/go-containerregistry/pkg/authn"
 )
 
 type Provider interface {
+	GetName() string
 	GetAuthKeychain(registry string) (authn.Keychain, error)
 }
 
 type ProviderRegistry map[string]Provider
 
-func NewProviderChain(pullSecretsGetter func(image string) []corev1.Secret) ProviderRegistry {
-	amazonProvider := amazon.NewProvider()
-	k8sProvider := k8s.NewProvider(pullSecretsGetter)
+func NewProviderChain(providers ...Provider) ProviderRegistry {
+	p := make(ProviderRegistry)
 
-	return map[string]Provider{
-		"amazon": amazonProvider,
-		"k8s":    k8sProvider,
+	for _, provider := range providers {
+		p[provider.GetName()] = provider
 	}
+
+	return p
 }
 
 type ImagePullSecretsFunc func(image string) []corev1.Secret

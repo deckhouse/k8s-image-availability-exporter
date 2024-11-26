@@ -11,25 +11,30 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
 	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/sirupsen/logrus"
 )
 
 type Provider struct {
 	ecrClient       *ecr.Client
-	authToken       *authn.AuthConfig
+	authToken       authn.AuthConfig
 	authTokenExpiry time.Time
+	name            string
 }
 
 func NewProvider() *Provider {
-	cfg, _ := config.LoadDefaultConfig(context.TODO(), config.WithRegion(requestEC2Region()))
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(requestEC2Region()))
+	if err != nil {
+		logrus.Warn("error while loading config for new aws provider ", err)
+	}
 	ecrClient := ecr.NewFromConfig(cfg)
-	return &Provider{ecrClient: ecrClient}
+	return &Provider{ecrClient: ecrClient, name: "amazon"}
 }
 
 func (p *Provider) GetAuthKeychain(_ string) (authn.Keychain, error) {
 	const bufferPeriod = time.Hour
 
-	if p.authToken != nil && time.Now().Before(p.authTokenExpiry.Add(-bufferPeriod)) {
-		return &customKeychain{authenticator: authn.FromConfig(*p.authToken)}, nil
+	if p.authToken.Username != "" && time.Now().Before(p.authTokenExpiry.Add(-bufferPeriod)) {
+		return &customKeychain{authenticator: authn.FromConfig(p.authToken)}, nil
 	}
 
 	authTokenOutput, err := p.ecrClient.GetAuthorizationToken(context.TODO(), &ecr.GetAuthorizationTokenInput{})
@@ -42,6 +47,11 @@ func (p *Provider) GetAuthKeychain(_ string) (authn.Keychain, error) {
 	}
 
 	authData := authTokenOutput.AuthorizationData[0]
+
+	if authData.AuthorizationToken == nil || *authData.AuthorizationToken == "" {
+		return nil, fmt.Errorf("authorization token is missing or empty")
+	}
+
 	decodedToken, err := base64.StdEncoding.DecodeString(*authData.AuthorizationToken)
 	if err != nil {
 		return nil, err
@@ -52,13 +62,13 @@ func (p *Provider) GetAuthKeychain(_ string) (authn.Keychain, error) {
 		return nil, fmt.Errorf("invalid authorization token format")
 	}
 
-	p.authToken = &authn.AuthConfig{
+	p.authToken = authn.AuthConfig{
 		Username: credentials[0],
 		Password: credentials[1],
 	}
 	p.authTokenExpiry = *authData.ExpiresAt
 
-	return &customKeychain{authenticator: authn.FromConfig(*p.authToken)}, nil
+	return &customKeychain{authenticator: authn.FromConfig(p.authToken)}, nil
 }
 
 func requestEC2Region() string {
@@ -74,4 +84,8 @@ type customKeychain struct {
 
 func (kc *customKeychain) Resolve(_ authn.Resource) (authn.Authenticator, error) {
 	return kc.authenticator, nil
+}
+
+func (p Provider) GetName() string {
+	return p.name
 }

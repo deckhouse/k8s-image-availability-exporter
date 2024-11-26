@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/flant/k8s-image-availability-exporter/pkg/providers"
+	"github.com/flant/k8s-image-availability-exporter/pkg/providers/amazon"
+	"github.com/flant/k8s-image-availability-exporter/pkg/providers/k8s"
 	"github.com/flant/k8s-image-availability-exporter/pkg/version"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
@@ -254,8 +256,11 @@ func NewChecker(
 	logrus.Info("Caches populated successfully")
 
 	rc.imageStore.RunGC(rc.controllerIndexers.GetContainerInfosForImage)
-
-	rc.providerRegistry = providers.NewProviderChain(rc.controllerIndexers.GetImagePullSecrets)
+	registry := providers.NewProviderChain(
+		amazon.NewProvider(),
+		k8s.NewProvider(rc.controllerIndexers.GetImagePullSecrets),
+	)
+	rc.providerRegistry = registry
 
 	return rc
 }
