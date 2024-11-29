@@ -6,17 +6,19 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"net/http"
-	"os"
-	"regexp"
-	"strings"
-	"time"
-
+	"github.com/flant/k8s-image-availability-exporter/pkg/providers"
+	"github.com/flant/k8s-image-availability-exporter/pkg/providers/amazon"
+	"github.com/flant/k8s-image-availability-exporter/pkg/providers/k8s"
 	"github.com/flant/k8s-image-availability-exporter/pkg/version"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
+	"net/http"
+	"os"
+	"regexp"
+	"strings"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -68,6 +70,8 @@ type Checker struct {
 	kubeClient *kubernetes.Clientset
 
 	config registryCheckerConfig
+
+	providerRegistry providers.ProviderRegistry
 }
 
 func NewChecker(
@@ -252,6 +256,11 @@ func NewChecker(
 	logrus.Info("Caches populated successfully")
 
 	rc.imageStore.RunGC(rc.controllerIndexers.GetContainerInfosForImage)
+	registry := providers.NewProviderChain(
+		amazon.NewProvider(),
+		k8s.NewProvider(rc.controllerIndexers.GetImagePullSecrets),
+	)
+	rc.providerRegistry = registry
 
 	return rc
 }
@@ -290,8 +299,11 @@ imagesLoop:
 }
 
 func (rc *Checker) Check(imageName string) store.AvailabilityMode {
-	keyChain := rc.controllerIndexers.GetKeychainForImage(imageName)
-
+	keyChain, err := rc.providerRegistry.GetAuthKeychain(imageName)
+	if err != nil {
+		logrus.Warn("error while getting keychain for: ", err)
+		return store.AuthnFailure
+	}
 	log := logrus.WithField("image_name", imageName)
 	return rc.checkImageAvailability(log, imageName, keyChain)
 }
