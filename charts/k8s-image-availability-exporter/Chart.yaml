@@ -1,8 +1,8 @@
 apiVersion: v1
-appVersion: "0.10.0"
+appVersion: "0.11.0"
 description: Application for monitoring the cluster workloads image presence in a container registry.
 name: k8s-image-availability-exporter
-version: "0.16.0"
+version: "0.17.0"
 kubeVersion: ">=1.14.0-0"
 maintainers:
 - name: nabokihms
