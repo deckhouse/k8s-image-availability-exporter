@@ -3,7 +3,7 @@ module github.com/flant/k8s-image-availability-exporter
 go 1.22.0
 
 require (
-	github.com/aws/aws-node-termination-handler v1.22.1
+	github.com/aws/aws-node-termination-handler v1.23.1
 	github.com/aws/aws-sdk-go-v2/config v1.28.7
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.36.7
 	github.com/gammazero/deque v0.2.1
