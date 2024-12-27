@@ -2,6 +2,29 @@ apiVersion: v1
 entries:
   k8s-image-availability-exporter:
   - apiVersion: v1
+    appVersion: 0.11.0
+    created: "2024-12-27T08:32:00.513842723Z"
+    description: Application for monitoring the cluster workloads image presence in
+      a container registry.
+    digest: c96249e3e43ac81d5bdcbde628ae8b6e9c7ed801a9c6634b0bc8afc713fd2c2d
+    keywords:
+    - kubernetes
+    - prometheus
+    - prometheus-exporter
+    - container-registry
+    - monitoring
+    kubeVersion: '>=1.14.0-0'
+    maintainers:
+    - email: max.nabokih@gmail.com
+      name: nabokihms
+      url: github.com/nabokihms
+    name: k8s-image-availability-exporter
+    sources:
+    - https://github.com/deckhouse/k8s-image-availability-exporter
+    urls:
+    - https://github.com/deckhouse/k8s-image-availability-exporter/releases/download/k8s-image-availability-exporter-0.17.0/k8s-image-availability-exporter-0.17.0.tgz
+    version: 0.17.0
+  - apiVersion: v1
     appVersion: 0.10.0
     created: "2024-11-29T22:00:11.509857267Z"
     description: Application for monitoring the cluster workloads image presence in
@@ -245,4 +268,4 @@ entries:
     urls:
     - https://github.com/deckhouse/k8s-image-availability-exporter/releases/download/k8s-image-availability-exporter-0.9.0/k8s-image-availability-exporter-0.9.0.tgz
     version: 0.9.0
-generated: "2024-11-29T22:00:11.509904636Z"
+generated: "2024-12-27T08:32:00.513893368Z"
