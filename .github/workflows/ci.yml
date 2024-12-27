@@ -21,7 +21,7 @@ jobs:
     steps:
     - uses: actions/setup-go@v5
       with:
-        go-version: '1.21'
+        go-version: '1.23'
 
     - uses: actions/checkout@v4
 
@@ -42,7 +42,7 @@ jobs:
 
     - uses: actions/setup-go@v5
       with:
-        go-version: '1.21'
+        go-version: '1.23'
 
     - name: Download golangci-lint
       run: make bin/golangci-lint
