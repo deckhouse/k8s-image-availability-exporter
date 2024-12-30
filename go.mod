@@ -7,7 +7,7 @@ toolchain go1.23.2
 require (
 	github.com/aws/aws-node-termination-handler v1.23.1
 	github.com/aws/aws-sdk-go-v2/config v1.28.7
-	github.com/aws/aws-sdk-go-v2/service/ecr v1.36.7
+	github.com/aws/aws-sdk-go-v2/service/ecr v1.38.0
 	github.com/gammazero/deque v0.2.1
 	github.com/google/go-containerregistry v0.20.2
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20240129192428-8dadbe76ff8c
