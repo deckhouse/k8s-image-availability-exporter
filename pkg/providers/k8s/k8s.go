@@ -25,34 +25,57 @@ func NewProvider(pullSecretsGetter func(image string) []corev1.Secret) *Provider
 
 func (p Provider) correctDockerRegistry(secrets []corev1.Secret) ([]corev1.Secret, error) {
 	for i, secret := range secrets {
-		if secret.Type == corev1.SecretTypeDockerConfigJson {
-			data, exists := secret.Data[corev1.DockerConfigJsonKey]
-			if exists {
-				var dockerConfig map[string]interface{}
-				if err := json.Unmarshal(data, &dockerConfig); err == nil {
-					auths, ok := dockerConfig["auths"].(map[string]interface{})
-					if ok {
-						for url := range auths {
-							if strings.Contains(url, "docker.io") && url != "https://index.docker.io/v1/" {
-								auths["https://index.docker.io/v1/"] = auths[url]
-								delete(auths, url)
-							}
-						}
-						updatedData, err := json.Marshal(dockerConfig)
-						if err == nil {
-							secrets[i].Data[corev1.DockerConfigJsonKey] = updatedData
-						} else {
-							return nil, fmt.Errorf("failed to re-marshal docker config: %v", err)
-						}
-					}
-				} else {
-					return nil, fmt.Errorf("failed to unmarshal docker config: %v", err)
-				}
-			}
+		if secret.Type != corev1.SecretTypeDockerConfigJson {
+			continue
 		}
+
+		data, exists := secret.Data[corev1.DockerConfigJsonKey]
+		if !exists {
+			continue
+		}
+
+		dockerConfig, err := parseDockerConfig(data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse docker config for secret %d: %w", i, err)
+		}
+
+		if err := updateDockerRegistryAuths(dockerConfig); err != nil {
+			return nil, fmt.Errorf("failed to update docker registry auths for secret %d: %w", i, err)
+		}
+
+		updatedData, err := json.Marshal(dockerConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal updated docker config for secret %d: %w", i, err)
+		}
+
+		secrets[i].Data[corev1.DockerConfigJsonKey] = updatedData
 	}
 	return secrets, nil
 }
+
+func parseDockerConfig(data []byte) (map[string]interface{}, error) {
+	var dockerConfig map[string]interface{}
+	if err := json.Unmarshal(data, &dockerConfig); err != nil {
+		return nil, fmt.Errorf("unmarshalling docker config: %w", err)
+	}
+	return dockerConfig, nil
+}
+
+func updateDockerRegistryAuths(dockerConfig map[string]interface{}) error {
+	auths, ok := dockerConfig["auths"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("'auths' section is missing or invalid in docker config")
+	}
+
+	for url, creds := range auths {
+		if strings.Contains(url, "docker.io") && url != "https://index.docker.io/v1/" {
+			auths["https://index.docker.io/v1/"] = creds
+			delete(auths, url)
+		}
+	}
+	return nil
+}
+
 
 func (p Provider) GetAuthKeychain(registry string) (authn.Keychain, error) {
 	dereferencedPullSecrets := p.pullSecretsGetter(registry)
