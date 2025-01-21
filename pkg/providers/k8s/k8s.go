@@ -76,7 +76,6 @@ func updateDockerRegistryAuths(dockerConfig map[string]interface{}) error {
 	return nil
 }
 
-
 func (p Provider) GetAuthKeychain(registry string) (authn.Keychain, error) {
 	dereferencedPullSecrets := p.pullSecretsGetter(registry)
 	correctedSecrets, err := p.correctDockerRegistry(dereferencedPullSecrets)
