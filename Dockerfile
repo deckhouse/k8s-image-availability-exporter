@@ -1,4 +1,4 @@
-FROM golang:1.23.4-bullseye as build
+FROM golang:1.23.5-bullseye as build
 
 WORKDIR /go/src/app
 ADD . /go/src/app
