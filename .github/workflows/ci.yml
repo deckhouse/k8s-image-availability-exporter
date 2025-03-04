@@ -4,10 +4,10 @@ on:
     tags:
     - v*
     branches:
-    - master
+    - main
   pull_request:
     branches:
-    - master
+    - main
 
 env:
   REGISTRY: registry-write.deckhouse.io
