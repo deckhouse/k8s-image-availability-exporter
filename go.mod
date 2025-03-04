@@ -5,7 +5,7 @@ go 1.23.0
 toolchain go1.23.2
 
 require (
-	github.com/aws/aws-node-termination-handler v1.24.0
+	github.com/aws/aws-node-termination-handler v1.25.0
 	github.com/aws/aws-sdk-go-v2/config v1.29.2
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.38.7
 	github.com/gammazero/deque v0.2.1
