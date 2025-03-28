@@ -2,7 +2,7 @@ module github.com/flant/k8s-image-availability-exporter
 
 go 1.23.0
 
-toolchain go1.23.2
+toolchain go1.24.1
 
 require (
 	github.com/aws/aws-node-termination-handler v1.25.0
@@ -18,7 +18,7 @@ require (
 	k8s.io/apimachinery v0.32.3
 	k8s.io/client-go v0.32.3
 	k8s.io/sample-controller v0.32.3
-	sigs.k8s.io/controller-runtime v0.20.2
+	sigs.k8s.io/controller-runtime v0.20.4
 )
 
 require (
