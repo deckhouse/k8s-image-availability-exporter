@@ -64,6 +64,7 @@ type Checker struct {
 	controllerIndexers ControllerIndexers
 
 	ignoredImagesRegex []regexp.Regexp
+	allowedImagesRegex []regexp.Regexp
 
 	registryTransport http.RoundTripper
 
@@ -82,6 +83,7 @@ func NewChecker(
 	caPths []string,
 	forceCheckDisabledControllerKinds []string,
 	ignoredImages []regexp.Regexp,
+	allowedImages []regexp.Regexp,
 	defaultRegistry string,
 	namespaceLabel string,
 	mirrorsMap map[string]string,
@@ -120,6 +122,7 @@ func NewChecker(
 		secretsInformer:        informerFactory.Core().V1().Secrets(),
 
 		ignoredImagesRegex: ignoredImages,
+		allowedImagesRegex: allowedImages,
 
 		registryTransport: roundTripper,
 
@@ -286,6 +289,12 @@ func (rc *Checker) reconcile(obj interface{}) {
 
 imagesLoop:
 	for _, image := range cis.containerToImages {
+		for _, allowedImagesRegex := range rc.allowedImagesRegex {
+			if !allowedImagesRegex.MatchString(image) {
+				continue imagesLoop
+			}
+		}
+
 		for _, ignoredImageRegex := range rc.ignoredImagesRegex {
 			if ignoredImageRegex.MatchString(image) {
 				continue imagesLoop

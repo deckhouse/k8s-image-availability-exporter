@@ -35,6 +35,7 @@ func main() {
 
 	imageCheckInterval := flag.Duration("check-interval", time.Minute, "image re-check interval")
 	ignoredImagesStr := flag.String("ignored-images", "", "tilde-separated image regexes to ignore, each image will be checked against this list of regexes")
+	allowedImagesStr := flag.String("allowed-images", "", "tilde-separated image regexes to allow, each image will be checked against this list of regexes")
 	bindAddr := flag.String("bind-address", ":8080", "address:port to bind /metrics endpoint to")
 	namespaceLabels := flag.String("namespace-label", "", "namespace label for checks")
 	insecureSkipVerify := flag.Bool("skip-registry-cert-verification", false, "whether to skip registries' certificate verification")
@@ -74,11 +75,19 @@ func main() {
 	)
 	prometheus.MustRegister(liveTicksCounter)
 
-	var regexes []regexp.Regexp
+	var ignoredImgRegexes []regexp.Regexp
 	if *ignoredImagesStr != "" {
 		regexStrings := strings.Split(*ignoredImagesStr, "~")
 		for _, regexStr := range regexStrings {
-			regexes = append(regexes, *regexp.MustCompile(regexStr))
+			ignoredImgRegexes = append(ignoredImgRegexes, *regexp.MustCompile(regexStr))
+		}
+	}
+
+	var allowedImgRegexes []regexp.Regexp
+	if *allowedImagesStr != "" {
+		regexStrings := strings.Split(*allowedImagesStr, "~")
+		for _, regexStr := range regexStrings {
+			allowedImgRegexes = append(allowedImgRegexes, *regexp.MustCompile(regexStr))
 		}
 	}
 
@@ -89,7 +98,8 @@ func main() {
 		*plainHTTP,
 		cp,
 		forceCheckDisabledControllerKindsParser.ParsedKinds,
-		regexes,
+		ignoredImgRegexes,
+		allowedImgRegexes,
 		*defaultRegistry,
 		*namespaceLabels,
 		mirrors,
