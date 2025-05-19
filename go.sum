@@ -1,5 +1,5 @@
-github.com/aws/aws-node-termination-handler v1.25.0 h1:PaNjFYokT70al0SLzdHzX4HPGeJkVqmHnKWoz+A+JUk=
-github.com/aws/aws-node-termination-handler v1.25.0/go.mod h1:2Az1GI92+TjltOjkKzOUexFJ7t24wakAGunmagC3CnQ=
+github.com/aws/aws-node-termination-handler v1.25.1 h1:uRF4xQE1VZnprI1vpscZOVwgztMAQ7gr8778DFm07YU=
+github.com/aws/aws-node-termination-handler v1.25.1/go.mod h1:adZwULq1sXPmzvo/SiiMEPBQ4kfKkMXBhi37TimMFro=
 github.com/aws/aws-sdk-go v1.55.4 h1:u7sFWQQs5ivGuYvCxi7gJI8nN/P9Dq04huLaw39a4lg=
 github.com/aws/aws-sdk-go v1.55.4/go.mod h1:eRwEWoyTWFMVYVQzKMNHWP5/RV4xIUGMQfXQHfHkpNU=
 github.com/aws/aws-sdk-go-v2 v1.36.3 h1:mJoei2CxPutQVxaATCzDUjcZEjVRdpsiiXi2o38yqWM=
