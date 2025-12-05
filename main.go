@@ -31,6 +31,7 @@ import (
 func main() {
 	cp := newCaPaths()
 	mirrors := newMirrorMap()
+	mirrorSchemes := newMirrorSchemeMap()
 	forceCheckDisabledControllerKindsParser := cli.NewForceCheckDisabledControllerKindsParser()
 
 	imageCheckInterval := flag.Duration("check-interval", time.Minute, "image re-check interval")
@@ -43,6 +44,7 @@ func main() {
 	defaultRegistry := flag.String("default-registry", "", fmt.Sprintf("default registry to use in absence of a fully qualified image name, defaults to %q", name.DefaultRegistry))
 	flag.Var(&cp, "capath", "path to a file that contains CA certificates in the PEM format") // named after the curl cli flag
 	flag.Var(&mirrors, "image-mirror", "Add a mirror repository (format: original=mirror)")
+	flag.Var(&mirrorSchemes, "mirror-scheme", "Add a mirror scheme (format: mirror=scheme)")
 	flag.Func("force-check-disabled-controllers", `comma-separated list of controller kinds for which image is forcibly checked, even when workloads are disabled or suspended. Acceptable values include "Deployment", "StatefulSet", "DaemonSet", "Cronjob" or "*" for all kinds (this option is case-insensitive)`, forceCheckDisabledControllerKindsParser.Parse)
 
 	flag.Parse()
@@ -103,6 +105,7 @@ func main() {
 		*defaultRegistry,
 		*namespaceLabels,
 		mirrors,
+		mirrorSchemes,
 	)
 	prometheus.MustRegister(registryChecker)
 
@@ -125,6 +128,7 @@ func main() {
 var (
 	_ flag.Value = (*caPaths)(nil)
 	_ flag.Value = (*mirrorMap)(nil)
+    _ flag.Value = (*mirrorSchemeMap)(nil)
 )
 
 // caPaths is a custom flag type for a list of paths to CA certificates
@@ -161,4 +165,31 @@ func (m *mirrorMap) Set(value string) error {
 	}
 	(*m)[result[0]] = result[1]
 	return nil
+}
+
+type mirrorSchemeMap map[string]string
+
+func newMirrorSchemeMap() mirrorSchemeMap {
+    return make(mirrorSchemeMap)
+}
+
+func (m *mirrorSchemeMap) String() string {
+    return fmt.Sprintf("%v", *m)
+}
+
+func (m *mirrorSchemeMap) Set(value string) error {
+    parts := strings.Split(value, "=")
+    if len(parts) != 2 {
+        return errors.New("invalid format for mirror scheme, must be mirror=scheme")
+    }
+
+    mirror := parts[0]
+    scheme := parts[1]
+
+    if scheme != "HTTP" && scheme != "HTTPS" {
+        return fmt.Errorf("invalid scheme %q, must be HTTP or HTTPS", scheme)
+    }
+
+    (*m)[mirror] = scheme
+    return nil
 }
