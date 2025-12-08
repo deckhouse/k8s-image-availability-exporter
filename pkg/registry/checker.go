@@ -45,9 +45,9 @@ const (
 )
 
 type registryCheckerConfig struct {
-	defaultRegistry string
-	plainHTTP       bool
-	mirrorsMap      map[string]string
+	defaultRegistry  string
+	plainHTTP        bool
+	mirrorsMap       map[string]string
 	mirrorsSchemeMap map[string]string
 }
 
@@ -131,9 +131,9 @@ func NewChecker(
 		kubeClient: kubeClient,
 
 		config: registryCheckerConfig{
-			defaultRegistry: defaultRegistry,
-			plainHTTP:       plainHTTP,
-			mirrorsMap:      mirrorsMap,
+			defaultRegistry:  defaultRegistry,
+			plainHTTP:        plainHTTP,
+			mirrorsMap:       mirrorsMap,
 			mirrorsSchemeMap: mirrorsSchemeMap,
 		},
 	}
@@ -327,28 +327,28 @@ func getImageWithMirror(originalImage string, mirrors map[string]string) (image 
 		}
 	}
 
-	return originalImage,""
+	return originalImage, ""
 }
 
 func getMirrorScheme(mirror string, mirrorsSchemes map[string]string) string {
-    if scheme, ok := mirrorsSchemes[mirror]; ok && scheme != "" {
-        return scheme
-    }
-    return "HTTPS"
+	if scheme, ok := mirrorsSchemes[mirror]; ok && scheme != "" {
+		return scheme
+	}
+	return "HTTPS"
 }
 
 func (rc *Checker) checkImageAvailability(log *logrus.Entry, imageName string, kc authn.Keychain) (availMode store.AvailabilityMode) {
-    allowPlainHTTP := rc.config.plainHTTP
+	allowPlainHTTP := rc.config.plainHTTP
 
-    var mirrorRepo string
-    if len(rc.config.mirrorsMap) > 0 {
-        imageName, mirrorRepo = getImageWithMirror(imageName, rc.config.mirrorsMap)
+	var mirrorRepo string
+	if len(rc.config.mirrorsMap) > 0 {
+		imageName, mirrorRepo = getImageWithMirror(imageName, rc.config.mirrorsMap)
 
-        if mirrorRepo != "" && len(rc.config.mirrorsSchemeMap) > 0 && !rc.config.plainHTTP{
-            scheme := getMirrorScheme(mirrorRepo, rc.config.mirrorsSchemeMap)
-            allowPlainHTTP = (scheme == "HTTP")
-        }
-    }
+		if mirrorRepo != "" && len(rc.config.mirrorsSchemeMap) > 0 && !rc.config.plainHTTP {
+			scheme := getMirrorScheme(mirrorRepo, rc.config.mirrorsSchemeMap)
+			allowPlainHTTP = (scheme == "HTTP")
+		}
+	}
 
 	ref, err := parseImageName(imageName, rc.config.defaultRegistry, allowPlainHTTP)
 	if err != nil {

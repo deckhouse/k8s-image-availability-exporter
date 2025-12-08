@@ -128,7 +128,7 @@ func main() {
 var (
 	_ flag.Value = (*caPaths)(nil)
 	_ flag.Value = (*mirrorMap)(nil)
-    _ flag.Value = (*mirrorSchemeMap)(nil)
+	_ flag.Value = (*mirrorSchemeMap)(nil)
 )
 
 // caPaths is a custom flag type for a list of paths to CA certificates
@@ -170,26 +170,26 @@ func (m *mirrorMap) Set(value string) error {
 type mirrorSchemeMap map[string]string
 
 func newMirrorSchemeMap() mirrorSchemeMap {
-    return make(mirrorSchemeMap)
+	return make(mirrorSchemeMap)
 }
 
 func (m *mirrorSchemeMap) String() string {
-    return fmt.Sprintf("%v", *m)
+	return fmt.Sprintf("%v", *m)
 }
 
 func (m *mirrorSchemeMap) Set(value string) error {
-    parts := strings.Split(value, "=")
-    if len(parts) != 2 {
-        return errors.New("invalid format for mirror scheme, must be mirror=scheme")
-    }
+	parts := strings.Split(value, "=")
+	if len(parts) != 2 {
+		return errors.New("invalid format for mirror scheme, must be mirror=scheme")
+	}
 
-    mirror := parts[0]
-    scheme := parts[1]
+	mirror := parts[0]
+	scheme := parts[1]
 
-    if scheme != "HTTP" && scheme != "HTTPS" {
-        return fmt.Errorf("invalid scheme %q, must be HTTP or HTTPS", scheme)
-    }
+	if scheme != "HTTP" && scheme != "HTTPS" {
+		return fmt.Errorf("invalid scheme %q, must be HTTP or HTTPS", scheme)
+	}
 
-    (*m)[mirror] = scheme
-    return nil
+	(*m)[mirror] = scheme
+	return nil
 }
