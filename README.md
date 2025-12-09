@@ -161,6 +161,8 @@ Usage of k8s-image-availability-exporter:
     	namespace label for checks
   -skip-registry-cert-verification
     	whether to skip registries' certificate verification
+  -mirror-scheme value
+      Add a mirror scheme (format: mirror=scheme). Beware allow-plain-http is a overriding option.
 ```
 
 ## Metrics
