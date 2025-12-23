@@ -133,6 +133,19 @@ groups:
         is not available in docker registry.
     labels:
       severity: critical
+  - alert: PodImageUnavailable
+    expr: |
+      max by (namespace, name, container, image) (
+        k8s_image_availability_exporter_available{kind="pod"} == 0
+      )
+    annotations:
+      message: >
+        Image {{`{{ $labels.image }}`}} from container {{`{{ $labels.container }}`}}
+        in pod {{`{{ $labels.name }}`}}
+        from namespace {{`{{ $labels.namespace }}`}}
+        is not available in docker registry.
+    labels:
+      severity: critical
 ```
 
 ## Configuration
@@ -180,7 +193,7 @@ Each metric has the following labels:
 * `namespace` - namespace name
 * `container` - container name
 * `image` - image URL in the registry
-* `kind` - Kubernetes controller kind, namely `deployment`, `statefulset`, `daemonset` or `cronjob`
+* `kind` - Kubernetes controller kind, namely `deployment`, `statefulset`, `daemonset`, `cronjob` or `pod`
 * `name` - controller name
 
 ## Compatibility
