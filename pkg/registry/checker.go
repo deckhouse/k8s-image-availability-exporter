@@ -6,6 +6,12 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"net/http"
+	"os"
+	"regexp"
+	"strings"
+	"time"
+
 	"github.com/flant/k8s-image-availability-exporter/pkg/providers"
 	"github.com/flant/k8s-image-availability-exporter/pkg/providers/amazon"
 	"github.com/flant/k8s-image-availability-exporter/pkg/providers/k8s"
@@ -14,11 +20,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
-	"net/http"
-	"os"
-	"regexp"
-	"strings"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -320,33 +321,31 @@ func (rc *Checker) Check(imageName string) store.AvailabilityMode {
 	return rc.checkImageAvailability(log, imageName, keyChain)
 }
 
-func getImageWithMirror(originalImage string, mirrors map[string]string) (image string, imageMirror string) {
+func getImageWithMirror(originalImage string, mirrors map[string]string, mirrorsSchemes map[string]string) (image string, allowPlainHTTP bool) {
 	for originalRepo, mirrorRepo := range mirrors {
 		if strings.HasPrefix(originalImage, originalRepo) {
-			return strings.Replace(originalImage, originalRepo, mirrorRepo, 1), mirrorRepo
+			mirroredImage := strings.Replace(originalImage, originalRepo, mirrorRepo, 1)
+
+			if scheme, ok := mirrorsSchemes[mirrorRepo]; ok && scheme != "" {
+				allowPlainHTTP = (scheme == "HTTP")
+			}
+
+			return mirroredImage, allowPlainHTTP
 		}
 	}
 
-	return originalImage, ""
-}
-
-func getMirrorScheme(mirror string, mirrorsSchemes map[string]string) string {
-	if scheme, ok := mirrorsSchemes[mirror]; ok && scheme != "" {
-		return scheme
-	}
-	return "HTTPS"
+	return originalImage, false
 }
 
 func (rc *Checker) checkImageAvailability(log *logrus.Entry, imageName string, kc authn.Keychain) (availMode store.AvailabilityMode) {
 	allowPlainHTTP := rc.config.plainHTTP
 
-	var mirrorRepo string
 	if len(rc.config.mirrorsMap) > 0 {
-		imageName, mirrorRepo = getImageWithMirror(imageName, rc.config.mirrorsMap)
+		var mirrorAllowsPlainHTTP bool
+		imageName, mirrorAllowsPlainHTTP = getImageWithMirror(imageName, rc.config.mirrorsMap, rc.config.mirrorsSchemeMap)
 
-		if mirrorRepo != "" && len(rc.config.mirrorsSchemeMap) > 0 && !rc.config.plainHTTP {
-			scheme := getMirrorScheme(mirrorRepo, rc.config.mirrorsSchemeMap)
-			allowPlainHTTP = (scheme == "HTTP")
+		if !rc.config.plainHTTP && mirrorAllowsPlainHTTP {
+			allowPlainHTTP = true
 		}
 	}
 

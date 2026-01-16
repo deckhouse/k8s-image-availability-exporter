@@ -184,11 +184,7 @@ func (m *mirrorSchemeMap) Set(value string) error {
 	}
 
 	mirror := parts[0]
-	scheme := parts[1]
-
-	if scheme != "HTTP" && scheme != "HTTPS" {
-		return fmt.Errorf("invalid scheme %q, must be HTTP or HTTPS", scheme)
-	}
+	scheme := strings.ToUpper(parts[1])
 
 	(*m)[mirror] = scheme
 	return nil
