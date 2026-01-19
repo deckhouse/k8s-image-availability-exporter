@@ -6,6 +6,12 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"net/http"
+	"os"
+	"regexp"
+	"strings"
+	"time"
+
 	"github.com/flant/k8s-image-availability-exporter/pkg/providers"
 	"github.com/flant/k8s-image-availability-exporter/pkg/providers/amazon"
 	"github.com/flant/k8s-image-availability-exporter/pkg/providers/k8s"
@@ -14,11 +20,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
-	"net/http"
-	"os"
-	"regexp"
-	"strings"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -45,9 +46,10 @@ const (
 )
 
 type registryCheckerConfig struct {
-	defaultRegistry string
-	plainHTTP       bool
-	mirrorsMap      map[string]string
+	defaultRegistry  string
+	plainHTTP        bool
+	mirrorsMap       map[string]string
+	mirrorsSchemeMap map[string]string
 }
 
 type Checker struct {
@@ -87,6 +89,7 @@ func NewChecker(
 	defaultRegistry string,
 	namespaceLabel string,
 	mirrorsMap map[string]string,
+	mirrorsSchemeMap map[string]string,
 ) *Checker {
 	informerFactory := informers.NewSharedInformerFactory(kubeClient, time.Hour)
 
@@ -129,9 +132,10 @@ func NewChecker(
 		kubeClient: kubeClient,
 
 		config: registryCheckerConfig{
-			defaultRegistry: defaultRegistry,
-			plainHTTP:       plainHTTP,
-			mirrorsMap:      mirrorsMap,
+			defaultRegistry:  defaultRegistry,
+			plainHTTP:        plainHTTP,
+			mirrorsMap:       mirrorsMap,
+			mirrorsSchemeMap: mirrorsSchemeMap,
 		},
 	}
 
@@ -317,22 +321,35 @@ func (rc *Checker) Check(imageName string) store.AvailabilityMode {
 	return rc.checkImageAvailability(log, imageName, keyChain)
 }
 
-func getImageWithMirror(originalImage string, mirrors map[string]string) string {
+func getImageWithMirror(originalImage string, mirrors map[string]string, mirrorsSchemes map[string]string) (image string, allowPlainHTTP bool) {
 	for originalRepo, mirrorRepo := range mirrors {
 		if strings.HasPrefix(originalImage, originalRepo) {
-			return strings.Replace(originalImage, originalRepo, mirrorRepo, 1)
+			mirroredImage := strings.Replace(originalImage, originalRepo, mirrorRepo, 1)
+
+			if scheme, ok := mirrorsSchemes[mirrorRepo]; ok && scheme != "" {
+				allowPlainHTTP = (scheme == "HTTP")
+			}
+
+			return mirroredImage, allowPlainHTTP
 		}
 	}
 
-	return originalImage
+	return originalImage, false
 }
 
 func (rc *Checker) checkImageAvailability(log *logrus.Entry, imageName string, kc authn.Keychain) (availMode store.AvailabilityMode) {
+	allowPlainHTTP := rc.config.plainHTTP
+
 	if len(rc.config.mirrorsMap) > 0 {
-		imageName = getImageWithMirror(imageName, rc.config.mirrorsMap)
+		var mirrorAllowsPlainHTTP bool
+		imageName, mirrorAllowsPlainHTTP = getImageWithMirror(imageName, rc.config.mirrorsMap, rc.config.mirrorsSchemeMap)
+
+		if !rc.config.plainHTTP && mirrorAllowsPlainHTTP {
+			allowPlainHTTP = true
+		}
 	}
 
-	ref, err := parseImageName(imageName, rc.config.defaultRegistry, rc.config.plainHTTP)
+	ref, err := parseImageName(imageName, rc.config.defaultRegistry, allowPlainHTTP)
 	if err != nil {
 		return checkImageNameParseErr(log, err)
 	}
