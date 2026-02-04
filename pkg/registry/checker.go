@@ -59,6 +59,7 @@ type Checker struct {
 	statefulSetsInformer   appsv1informers.StatefulSetInformer
 	daemonSetsInformer     appsv1informers.DaemonSetInformer
 	cronJobsInformer       batchv1informers.CronJobInformer
+	podsInformer           corev1informers.PodInformer
 	secretsInformer        corev1informers.SecretInformer
 
 	controllerIndexers ControllerIndexers
@@ -119,6 +120,7 @@ func NewChecker(
 		statefulSetsInformer:   informerFactory.Apps().V1().StatefulSets(),
 		daemonSetsInformer:     informerFactory.Apps().V1().DaemonSets(),
 		cronJobsInformer:       informerFactory.Batch().V1().CronJobs(),
+		podsInformer:           informerFactory.Core().V1().Pods(),
 		secretsInformer:        informerFactory.Core().V1().Secrets(),
 
 		ignoredImagesRegex: ignoredImages,
@@ -231,6 +233,27 @@ func NewChecker(
 		panic(err)
 	}
 	rc.controllerIndexers.cronJobIndexer = rc.cronJobsInformer.Informer().GetIndexer()
+
+	_, _ = rc.podsInformer.Informer().AddEventHandlerWithResyncPeriod(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			rc.reconcile(obj)
+		},
+		UpdateFunc: func(_, newObj interface{}) {
+			rc.reconcile(newObj)
+		},
+		DeleteFunc: func(obj interface{}) {
+			rc.reconcile(obj)
+		},
+	}, time.Minute)
+	err = rc.podsInformer.Informer().AddIndexers(imageIndexers)
+	if err != nil {
+		panic(err)
+	}
+	err = rc.podsInformer.Informer().SetTransform(getImagesFromPod)
+	if err != nil {
+		panic(err)
+	}
+	rc.controllerIndexers.podIndexer = rc.podsInformer.Informer().GetIndexer()
 
 	namespace := "default"
 	// Create a context
