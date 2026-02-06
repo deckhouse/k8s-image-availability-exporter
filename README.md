@@ -187,4 +187,29 @@ Each metric has the following labels:
 
 k8s-image-availability-exporter is compatible with Kubernetes 1.15+ and Docker Registry V2 compliant container registries.
 
+### AWS ECR Multi-Region Support
+
+**Note:** AWS China regions (.amazonaws.com.cn) are not supported.
+
+The exporter automatically supports AWS ECR repositories across multiple regions. When checking image availability, the exporter:
+
+1. Extracts the AWS region from the ECR registry URL (e.g., `123456789012.dkr.ecr.us-west-2.amazonaws.com` → `us-west-2`)
+2. Creates a region-specific ECR client for that region
+3. Obtains and caches authorization tokens per-region
+
+This enables seamless support for:
+- **Cross-region ECR replication** - Check images replicated to different AWS regions
+- **Multi-region deployments** - Verify images in clusters across different regions
+- **Pull-through cache** - Support ECR pull-through cache configured in various regions
+
+**Requirements for AWS ECR access:**
+- IAM role/instance profile with `ecr:GetAuthorizationToken` permission (region: `*`)
+- IAM permissions for ECR repositories in target regions:
+  - `ecr:BatchCheckLayerAvailability`
+  - `ecr:BatchGetImage`
+  - `ecr:GetDownloadUrlForLayer`
+- EC2 Instance Metadata Service (IMDS) accessible with `http_put_response_hop_limit >= 2` for EKS nodes
+
+**Fallback behavior:** If the region cannot be extracted from the ECR URL, the exporter falls back to using the cluster's region obtained from EC2 metadata.
+
 Since the exporter operates as a Deployment, it *does not* support container registries that should be accessed via authorization on a node.
