@@ -87,6 +87,7 @@ func NewChecker(
 	defaultRegistry string,
 	namespaceLabel string,
 	mirrorsMap map[string]string,
+	disableECR bool,
 ) *Checker {
 	informerFactory := informers.NewSharedInformerFactory(kubeClient, time.Hour)
 
@@ -259,11 +260,20 @@ func NewChecker(
 	logrus.Info("Caches populated successfully")
 
 	rc.imageStore.RunGC(rc.controllerIndexers.GetContainerInfosForImage)
-	registry := providers.NewProviderChain(
-		amazon.NewProvider(),
-		k8s.NewProvider(rc.controllerIndexers.GetImagePullSecrets),
-	)
-	rc.providerRegistry = registry
+
+	var registry providers.ProviderRegistry
+        if disableECR {
+          registry = providers.NewProviderChain(
+            k8s.NewProvider(rc.controllerIndexers.GetImagePullSecrets),
+          )
+        } else {
+          registry = providers.NewProviderChain(
+            amazon.NewProvider(),
+            k8s.NewProvider(rc.controllerIndexers.GetImagePullSecrets),
+          )
+        }
+        
+        rc.providerRegistry = registry
 
 	return rc
 }
