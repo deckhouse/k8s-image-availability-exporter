@@ -13,6 +13,9 @@ spec:
         max by (namespace, name, container, image) (
           k8s_image_availability_exporter_available{kind="deployment"} == 0
         )
+      {{- if .Values.prometheusRule.for }}
+      for: {{ .Values.prometheusRule.for }}
+      {{- end }}
       annotations:
         message: >
           Image {{`{{ $labels.image }}`}} from container {{`{{ $labels.container }}`}}
@@ -26,6 +29,9 @@ spec:
         max by (namespace, name, container, image) (
           k8s_image_availability_exporter_available{kind="statefulset"} == 0
         )
+      {{- if .Values.prometheusRule.for }}
+      for: {{ .Values.prometheusRule.for }}
+      {{- end }}
       annotations:
         message: >
           Image {{`{{ $labels.image }}`}} from container {{`{{ $labels.container }}`}}
@@ -39,6 +45,9 @@ spec:
         max by (namespace, name, container, image) (
           k8s_image_availability_exporter_available{kind="daemonset"} == 0
         )
+      {{- if .Values.prometheusRule.for }}
+      for: {{ .Values.prometheusRule.for }}
+      {{- end }}
       annotations:
         message: >
           Image {{`{{ $labels.image }}`}} from container {{`{{ $labels.container }}`}}
@@ -52,6 +61,9 @@ spec:
         max by (namespace, name, container, image) (
           k8s_image_availability_exporter_available{kind="cronjob"} == 0
         )
+      {{- if .Values.prometheusRule.for }}
+      for: {{ .Values.prometheusRule.for }}
+      {{- end }}
       annotations:
         message: >
           Image {{`{{ $labels.image }}`}} from container {{`{{ $labels.container }}`}}

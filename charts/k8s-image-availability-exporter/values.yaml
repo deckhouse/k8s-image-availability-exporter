@@ -164,5 +164,7 @@ prometheusRule:
   enabled: false
   # -- Setup default alerts (works only if prometheusRule.enabled is set to true)
   defaultGroupsEnabled: true
+  # -- Optional duration for which the condition must be true before firing. If not set, alerts fire immediately.
+  for: ""
   # -- Additional PrometheusRule groups
   additionalGroups: []
