@@ -335,7 +335,7 @@ func (rc *Checker) checkImageAvailability(log *logrus.Entry, imageName string, k
 
 	if len(rc.config.mirrorsMap) > 0 {
 		imageName = getImageWithMirror(ref.String(), rc.config.mirrorsMap)
-		ref, err := parseImageName(imageName, rc.config.defaultRegistry, rc.config.plainHTTP)
+		ref, err = parseImageName(imageName, rc.config.defaultRegistry, rc.config.plainHTTP)
 		if err != nil {
 			return checkImageNameParseErr(log, err)
 		}
