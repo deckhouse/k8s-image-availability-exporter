@@ -5,6 +5,7 @@ on:
     - v*
     branches:
     - main
+    - multi-platform-build
   workflow_dispatch: # Allows you to click a "Run workflow" button
   pull_request:
     branches:
