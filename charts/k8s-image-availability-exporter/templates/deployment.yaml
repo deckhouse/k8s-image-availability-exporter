@@ -52,7 +52,7 @@ spec:
         - containerPort: 8080
           name: http
         image: {{ .Values.k8sImageAvailabilityExporter.image.repository }}:{{ .Values.k8sImageAvailabilityExporter.image.tag | default (printf "v%s" .Chart.AppVersion) }}
-        imagePullPolicy: {{ .Values.k8sImageAvailabilityExporter.image.imagePullPolicy }}
+        imagePullPolicy: {{ .Values.k8sImageAvailabilityExporter.image.pullPolicy }}
         securityContext:
           {{- toYaml .Values.securityContext | nindent 12 }}
         livenessProbe:
