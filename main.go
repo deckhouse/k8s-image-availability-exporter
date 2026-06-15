@@ -36,6 +36,7 @@ func main() {
 	imageCheckInterval := flag.Duration("check-interval", time.Minute, "image re-check interval")
 	ignoredImagesStr := flag.String("ignored-images", "", "tilde-separated image regexes to ignore, each image will be checked against this list of regexes")
 	allowedImagesStr := flag.String("allowed-images", "", "tilde-separated image regexes to allow, each image will be checked against this list of regexes")
+	disableECR := flag.Bool("disable-ecr", false, "disable AWS ECR integration (always use k8s provider)")
 	bindAddr := flag.String("bind-address", ":8080", "address:port to bind /metrics endpoint to")
 	namespaceLabels := flag.String("namespace-label", "", "namespace label for checks")
 	insecureSkipVerify := flag.Bool("skip-registry-cert-verification", false, "whether to skip registries' certificate verification")
@@ -103,6 +104,7 @@ func main() {
 		*defaultRegistry,
 		*namespaceLabels,
 		mirrors,
+		*disableECR,
 	)
 	prometheus.MustRegister(registryChecker)
 

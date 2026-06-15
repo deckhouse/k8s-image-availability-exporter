@@ -31,10 +31,13 @@ var (
 )
 
 func (p ProviderRegistry) GetAuthKeychain(registry string) (authn.Keychain, error) {
-	switch {
-	case amazonURLRegex.MatchString(registry):
-		return p["amazon"].GetAuthKeychain(registry)
-	default:
-		return p["k8s"].GetAuthKeychain(registry)
-	}
+  switch {
+  case amazonURLRegex.MatchString(registry):
+    if amazonProvider, ok := p["amazon"]; ok && amazonProvider != nil {
+      return amazonProvider.GetAuthKeychain(registry)
+    }
+    return p["k8s"].GetAuthKeychain(registry)
+  default:
+    return p["k8s"].GetAuthKeychain(registry)
+  }
 }
