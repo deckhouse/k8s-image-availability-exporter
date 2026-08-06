@@ -1,4 +1,7 @@
-FROM golang:1.25.8-alpine as build
+FROM --platform=$BUILDPLATFORM golang:1.25.8-alpine as build
+
+ARG TARGETOS
+ARG TARGETARCH
 
 WORKDIR /go/src/app
 ADD . /go/src/app
@@ -6,7 +9,7 @@ ADD . /go/src/app
 RUN go get -d -v ./...
 
 ARG TAG
-RUN CGO_ENABLED=0 go build -a \
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -a \
     -ldflags "-s -w -extldflags '-static' -X github.com/flant/k8s-image-availability-exporter/pkg/version.Version=${TAG}" \
     -o /go/bin/k8s-image-availability-exporter main.go
 
