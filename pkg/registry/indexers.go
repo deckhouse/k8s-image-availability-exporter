@@ -26,6 +26,7 @@ type ControllerIndexers struct {
 	statefulSetIndexer                cache.Indexer
 	daemonSetIndexer                  cache.Indexer
 	cronJobIndexer                    cache.Indexer
+	podIndexer                        cache.Indexer
 	secretIndexer                     cache.Indexer
 	forceCheckDisabledControllerKinds []string
 }
@@ -157,6 +158,25 @@ func getImagesFromCronJob(obj interface{}) (interface{}, error) {
 	}, nil
 }
 
+func getImagesFromPod(obj interface{}) (interface{}, error) {
+	if cis, ok := obj.(*controllerWithContainerInfos); ok {
+		return cis, nil
+	}
+
+	pod := obj.(*corev1.Pod)
+
+	podCopy := pod.DeepCopy()
+
+	return &controllerWithContainerInfos{
+		ObjectMeta:           podCopy.ObjectMeta,
+		controllerKind:       "Pod",
+		containerToImages:    extractImagesFromContainers(podCopy.Spec.Containers),
+		pullSecretReferences: podCopy.Spec.ImagePullSecrets,
+		serviceAccountName:   podCopy.Spec.ServiceAccountName,
+		enabled:              shouldMonitorPod(podCopy),
+	}, nil
+}
+
 func extractImagesFromContainers(containers []corev1.Container) map[string]string {
 	ret := make(map[string]string)
 
@@ -165,6 +185,31 @@ func extractImagesFromContainers(containers []corev1.Container) map[string]strin
 	}
 
 	return ret
+}
+
+func shouldMonitorPod(pod *corev1.Pod) bool {
+	if len(pod.OwnerReferences) == 0 {
+		return true
+	}
+
+	for _, owner := range pod.OwnerReferences {
+		if owner.Controller != nil && *owner.Controller {
+			if isStandardControllerKind(owner.Kind) {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+func isStandardControllerKind(kind string) bool {
+	switch strings.ToLower(kind) {
+	case "replicaset", "statefulset", "daemonset", "job":
+		return true
+	default:
+		return false
+	}
 }
 
 func extractPullSecretKeysFromServiceAccount(namespace string, sa *corev1.ServiceAccount) (ret []string) {
@@ -216,7 +261,7 @@ func (ci ControllerIndexers) ExtractPullSecretRefs(obj interface{}) (ret []strin
 }
 
 func (ci ControllerIndexers) GetObjectsByImageIndex(image string) (ret []interface{}) {
-	for _, indexer := range []cache.Indexer{ci.deploymentIndexer, ci.statefulSetIndexer, ci.daemonSetIndexer, ci.cronJobIndexer} {
+	for _, indexer := range []cache.Indexer{ci.deploymentIndexer, ci.statefulSetIndexer, ci.daemonSetIndexer, ci.cronJobIndexer, ci.podIndexer} {
 		objs, err := indexer.ByIndex(imageIndexName, image)
 		if err != nil {
 			panic(err)

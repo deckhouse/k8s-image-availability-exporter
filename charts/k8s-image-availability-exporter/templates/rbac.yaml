@@ -17,6 +17,7 @@ rules:
       - ""
     resources:
       - namespaces
+      - pods
     verbs:
       - list
       - watch
