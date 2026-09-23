@@ -249,9 +249,14 @@ func NewChecker(
 		}
 	} else if err != nil {
 		logrus.Fatal(err.Error())
-	} else {
-		rc.controllerIndexers.secretIndexer = rc.secretsInformer.Informer().GetIndexer()
 	}
+
+	// secretIndexer must be wired up regardless of the probe result above: the
+	// informer factory already started watching Secrets when secretsInformer was
+	// constructed, so an RBAC-restricted setup (useSecretsForPrivateRepositories:
+	// false) just needs this indexer to stay non-nil (permanently empty) instead
+	// of panicking in GetImagePullSecrets. See #343.
+	rc.controllerIndexers.secretIndexer = rc.secretsInformer.Informer().GetIndexer()
 
 	rc.controllerIndexers.forceCheckDisabledControllerKinds = forceCheckDisabledControllerKinds
 
