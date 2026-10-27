@@ -11,15 +11,9 @@ import (
 	"slices"
 	"strings"
 	"sync/atomic"
-	"time"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
-
-// CAReloadInterval is how often the CA files given via -capath are re-read. It is part of the -capath help
-// text, which README.md mirrors; keep them in sync.
-const CAReloadInterval = 15 * time.Minute
 
 // newHTTPTransport returns a clone of http.DefaultTransport with the given TLS config.
 func newHTTPTransport(tlsConfig *tls.Config) *http.Transport {
@@ -30,13 +24,14 @@ func newHTTPTransport(tlsConfig *tls.Config) *http.Transport {
 }
 
 // reloadingTransport is an http.RoundTripper backed by an *http.Transport whose RootCAs are loaded from PEM
-// files on disk. Reload re-reads the files and swaps the underlying transport only when their content changed.
+// files on disk. Reload re-reads the files and swaps the underlying transport only when their content changed;
+// Checker.Tick calls it before every round of image checks.
 type reloadingTransport struct {
 	caPaths []string
 
 	current atomic.Pointer[http.Transport]
 	last    [][]byte // contents of caPaths as of the last successful load
-	failing bool     // whether the previous periodic reload failed; used by reloadAndLog only
+	failing bool     // whether the previous reload failed; reloadAndLog logs state transitions only
 }
 
 // newReloadingTransport loads the CA files once; a missing or unparsable file is an error (fail fast at startup).
@@ -60,7 +55,7 @@ func (t *reloadingTransport) RoundTrip(req *http.Request) (*http.Response, error
 
 // Reload re-reads the CA files and replaces the underlying transport if their content changed. On error the
 // previously loaded transport is kept intact. Reload must not be called concurrently with itself; it is called by
-// newReloadingTransport and then only from Run.
+// newReloadingTransport and then only from Checker.Tick.
 func (t *reloadingTransport) Reload() (changed bool, err error) {
 	rootCAs, contents, err := loadCAs(t.caPaths)
 	if err != nil {
@@ -80,17 +75,14 @@ func (t *reloadingTransport) Reload() (changed bool, err error) {
 	return true, nil
 }
 
-// Run re-reads the CA files every interval until stopCh is closed.
-func (t *reloadingTransport) Run(interval time.Duration, stopCh <-chan struct{}) {
-	wait.Until(t.reloadAndLog, interval, stopCh)
-}
-
-// reloadAndLog is the periodic body of Run. wait.Until calls it immediately; that first pass is a no-op unless
-// the files changed since newReloadingTransport loaded them.
+// reloadAndLog is Reload with logging, for use from Checker.Tick. Only state transitions are logged: the first
+// failure, the recovery and an actual change, so a persistent error does not repeat on every tick.
 func (t *reloadingTransport) reloadAndLog() {
 	changed, err := t.Reload()
 	if err != nil {
-		logrus.Errorf("Failed to reload CA certificates, keeping previously loaded ones: %v", err)
+		if !t.failing {
+			logrus.Errorf("Failed to reload CA certificates, keeping previously loaded ones: %v", err)
+		}
 		t.failing = true
 		return
 	}

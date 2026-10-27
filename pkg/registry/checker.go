@@ -66,6 +66,8 @@ type Checker struct {
 	allowedImagesRegex []regexp.Regexp
 
 	registryTransport http.RoundTripper
+	// caTransport is set only when CA files are supplied via -capath; Tick re-reads them before every check.
+	caTransport *reloadingTransport
 
 	kubeClient *kubernetes.Clientset
 
@@ -126,6 +128,7 @@ func NewChecker(
 		allowedImagesRegex: allowedImages,
 
 		registryTransport: roundTripper,
+		caTransport:       caTransport,
 
 		kubeClient: kubeClient,
 
@@ -259,10 +262,6 @@ func NewChecker(
 	informerFactory.WaitForCacheSync(stopCh)
 	logrus.Info("Caches populated successfully")
 
-	if caTransport != nil {
-		go caTransport.Run(CAReloadInterval, stopCh)
-	}
-
 	rc.imageStore.RunGC(rc.controllerIndexers.GetContainerInfosForImage)
 	registry := providers.NewProviderChain(
 		amazon.NewProvider(awsRegion),
@@ -286,6 +285,9 @@ func (rc *Checker) Collect(ch chan<- prometheus.Metric) {
 func (rc *Checker) Describe(_ chan<- *prometheus.Desc) {}
 
 func (rc *Checker) Tick() {
+	if rc.caTransport != nil {
+		rc.caTransport.reloadAndLog()
+	}
 	rc.imageStore.Check()
 }
 

@@ -17,12 +17,13 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/flant/k8s-image-availability-exporter/pkg/store"
 )
 
 // generateCA returns a self-signed CA in PEM form together with a tls.Certificate that a test server can
@@ -233,35 +234,21 @@ func TestReloadingTransport_MultipleFiles(t *testing.T) {
 	requireGetOK(t, tr, srv.URL)
 }
 
-func TestReloadingTransport_Run(t *testing.T) {
+func TestChecker_TickReloadsCA(t *testing.T) {
 	caA, _ := generateCA(t)
 	caB, certB := generateCA(t)
 	srv, _ := newTLSServer(t, certB)
 	tr, caPath := newTestTransport(t, caA)
 	requireGetUntrusted(t, tr, srv.URL)
 
-	stopCh := make(chan struct{})
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		tr.Run(10*time.Millisecond, stopCh)
-	}()
-	var stopOnce sync.Once
-	stop := func() { stopOnce.Do(func() { close(stopCh) }) }
-	t.Cleanup(stop) // also stops Run if an assertion below fails
+	rc := &Checker{caTransport: tr, imageStore: store.NewImageStore(nil, 0, 0)}
 
 	writeFile(t, caPath, caB)
-	require.Eventually(t, func() bool {
-		status, err := doGet(tr, srv.URL)
-		return err == nil && status == http.StatusOK
-	}, 5*time.Second, 10*time.Millisecond, "Run must pick up the new CA")
+	rc.Tick()
+	requireGetOK(t, tr, srv.URL)
 
-	stop()
-	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-		t.Fatal("Run did not stop after stopCh was closed")
-	}
+	// Without -capath there is nothing to reload.
+	(&Checker{imageStore: store.NewImageStore(nil, 0, 0)}).Tick()
 }
 
 func TestNewReloadingTransport_Errors(t *testing.T) {
