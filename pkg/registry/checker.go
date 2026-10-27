@@ -3,11 +3,9 @@ package registry
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -43,6 +41,8 @@ import (
 const (
 	failedCheckBatchSize = 20
 	checkBatchSize       = 50
+
+	caReloadInterval = 15 * time.Minute
 )
 
 type registryCheckerConfig struct {
@@ -92,24 +92,27 @@ func NewChecker(
 ) *Checker {
 	informerFactory := informers.NewSharedInformerFactory(kubeClient, time.Hour)
 
-	customTransport := http.DefaultTransport.(*http.Transport).Clone()
-	if skipVerify {
-		customTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	} else if len(caPths) > 0 {
-		rootCAs, _ := x509.SystemCertPool()
-		if rootCAs == nil {
-			rootCAs = x509.NewCertPool()
+	var (
+		customTransport http.RoundTripper
+		caTransport     *reloadingTransport
+	)
+	switch {
+	case skipVerify:
+		if len(caPths) > 0 {
+			logrus.Warn("-capath is ignored because -skip-registry-cert-verification is set")
 		}
-		for _, caPath := range caPths {
-			pemCerts, err := os.ReadFile(caPath)
-			if err != nil {
-				logrus.Fatalf("Failed to open file %q: %v", caPath, err)
-			}
-			if ok := rootCAs.AppendCertsFromPEM(pemCerts); !ok {
-				logrus.Fatalf("Error parsing %q content as a PEM encoded certificate", caPath)
-			}
+		tr := http.DefaultTransport.(*http.Transport).Clone()
+		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		customTransport = tr
+	case len(caPths) > 0:
+		var err error
+		caTransport, err = newReloadingTransport(caPths)
+		if err != nil {
+			logrus.Fatalf("Failed to load CA certificates: %v", err)
 		}
-		customTransport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
+		customTransport = caTransport
+	default:
+		customTransport = http.DefaultTransport.(*http.Transport).Clone()
 	}
 
 	roundTripper := transport.NewUserAgent(customTransport, fmt.Sprintf("k8s-image-availability-exporter/%s", version.Version))
@@ -259,6 +262,10 @@ func NewChecker(
 	logrus.Info("Waiting for cache sync")
 	informerFactory.WaitForCacheSync(stopCh)
 	logrus.Info("Caches populated successfully")
+
+	if caTransport != nil {
+		go caTransport.Run(caReloadInterval, stopCh)
+	}
 
 	rc.imageStore.RunGC(rc.controllerIndexers.GetContainerInfosForImage)
 	registry := providers.NewProviderChain(
