@@ -146,7 +146,7 @@ Usage of k8s-image-availability-exporter:
   -bind-address string
     	address:port to bind /metrics endpoint to (default ":8080")
   -capath value
-    	path to a file that contains CA certificates in the PEM format; re-read every 15 minutes (mount it as a directory, not via subPath, so that updates are propagated)
+    	path to a file that contains CA certificates in the PEM format; re-read every 15m0s, keeping the previously loaded certificates if a file cannot be read or contains no valid certificate (mount the ConfigMap/Secret as a volume directory rather than via subPath, so that updates are propagated)
   -check-interval duration
     	image re-check interval (default 1m0s)
   -default-registry string

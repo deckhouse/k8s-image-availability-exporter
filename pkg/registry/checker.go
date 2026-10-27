@@ -41,8 +41,6 @@ import (
 const (
 	failedCheckBatchSize = 20
 	checkBatchSize       = 50
-
-	caReloadInterval = 15 * time.Minute
 )
 
 type registryCheckerConfig struct {
@@ -262,7 +260,7 @@ func NewChecker(
 	logrus.Info("Caches populated successfully")
 
 	if caTransport != nil {
-		go caTransport.Run(caReloadInterval, stopCh)
+		go caTransport.Run(CAReloadInterval, stopCh)
 	}
 
 	rc.imageStore.RunGC(rc.controllerIndexers.GetContainerInfosForImage)

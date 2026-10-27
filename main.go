@@ -42,7 +42,7 @@ func main() {
 	plainHTTP := flag.Bool("allow-plain-http", false, "whether to fallback to HTTP scheme for registries that don't support HTTPS") // named after the ctr cli flag
 	defaultRegistry := flag.String("default-registry", "", fmt.Sprintf("default registry to use in absence of a fully qualified image name, defaults to %q", name.DefaultRegistry))
 	awsRegion := flag.String("aws-region", "", "AWS region for ECR authentication")
-	flag.Var(&cp, "capath", "path to a file that contains CA certificates in the PEM format; re-read every 15 minutes (mount it as a directory, not via subPath, so that updates are propagated)") // named after the curl cli flag
+	flag.Var(&cp, "capath", fmt.Sprintf("path to a file that contains CA certificates in the PEM format; re-read every %s, keeping the previously loaded certificates if a file cannot be read or contains no valid certificate (mount the ConfigMap/Secret as a volume directory rather than via subPath, so that updates are propagated)", registry.CAReloadInterval)) // named after the curl cli flag
 	flag.Var(&mirrors, "image-mirror", "Add a mirror repository (format: original=mirror)")
 	flag.Func("force-check-disabled-controllers", `comma-separated list of controller kinds for which image is forcibly checked, even when workloads are disabled or suspended. Acceptable values include "Deployment", "StatefulSet", "DaemonSet", "Cronjob" or "*" for all kinds (this option is case-insensitive)`, forceCheckDisabledControllerKindsParser.Parse)
 
