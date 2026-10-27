@@ -101,9 +101,7 @@ func NewChecker(
 		if len(caPths) > 0 {
 			logrus.Warn("-capath is ignored because -skip-registry-cert-verification is set")
 		}
-		tr := http.DefaultTransport.(*http.Transport).Clone()
-		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-		customTransport = tr
+		customTransport = newHTTPTransport(&tls.Config{InsecureSkipVerify: true})
 	case len(caPths) > 0:
 		var err error
 		caTransport, err = newReloadingTransport(caPths)
@@ -112,7 +110,7 @@ func NewChecker(
 		}
 		customTransport = caTransport
 	default:
-		customTransport = http.DefaultTransport.(*http.Transport).Clone()
+		customTransport = newHTTPTransport(nil)
 	}
 
 	roundTripper := transport.NewUserAgent(customTransport, fmt.Sprintf("k8s-image-availability-exporter/%s", version.Version))

@@ -17,6 +17,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
+// newHTTPTransport returns a clone of http.DefaultTransport with the given TLS config.
+func newHTTPTransport(tlsConfig *tls.Config) *http.Transport {
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr.TLSClientConfig = tlsConfig
+
+	return tr
+}
+
 // reloadingTransport is an http.RoundTripper backed by an *http.Transport whose RootCAs are loaded from PEM
 // files on disk. Reload re-reads the files and swaps the underlying transport only when their content changed.
 type reloadingTransport struct {
@@ -29,19 +37,12 @@ type reloadingTransport struct {
 	last     [][]byte // contents of caPaths as of the last successful load, guarded by reloadMu
 }
 
+// newReloadingTransport loads the CA files once; a missing or unparsable file is an error (fail fast at startup).
 func newReloadingTransport(caPaths []string) (*reloadingTransport, error) {
-	contents, err := readCAFiles(caPaths)
-	if err != nil {
+	t := &reloadingTransport{caPaths: caPaths}
+	if _, err := t.Reload(); err != nil {
 		return nil, err
 	}
-
-	tr, err := newCATransport(caPaths, contents)
-	if err != nil {
-		return nil, err
-	}
-
-	t := &reloadingTransport{caPaths: caPaths, last: contents}
-	t.current.Store(tr)
 
 	return t, nil
 }
@@ -57,7 +58,7 @@ func (t *reloadingTransport) Reload() (changed bool, err error) {
 	t.reloadMu.Lock()
 	defer t.reloadMu.Unlock()
 
-	contents, err := readCAFiles(t.caPaths)
+	rootCAs, contents, err := loadCAs(t.caPaths)
 	if err != nil {
 		return false, err
 	}
@@ -65,60 +66,53 @@ func (t *reloadingTransport) Reload() (changed bool, err error) {
 		return false, nil
 	}
 
-	tr, err := newCATransport(t.caPaths, contents)
-	if err != nil {
-		return false, err
-	}
-
-	old := t.current.Swap(tr)
+	old := t.current.Swap(newHTTPTransport(&tls.Config{RootCAs: rootCAs}))
 	t.last = contents
-	// Pooled keep-alive connections were verified against the old pool; drop them so new ones get re-verified.
-	old.CloseIdleConnections()
+	if old != nil {
+		// Pooled keep-alive connections were verified against the old pool; drop them so new ones get re-verified.
+		old.CloseIdleConnections()
+	}
 
 	return true, nil
 }
 
-// Run re-reads the CA files every interval until stopCh is closed. wait.Until runs the function immediately;
-// that first pass is a no-op since the files were just loaded by newReloadingTransport.
+// Run re-reads the CA files every interval until stopCh is closed.
 func (t *reloadingTransport) Run(interval time.Duration, stopCh <-chan struct{}) {
-	wait.Until(func() {
-		changed, err := t.Reload()
-		if err != nil {
-			logrus.Errorf("Failed to reload CA certificates, keeping previously loaded ones: %v", err)
-			return
-		}
-		if changed {
-			logrus.Infof("Reloaded CA certificates from %s", strings.Join(t.caPaths, ", "))
-		}
-	}, interval, stopCh)
+	wait.Until(t.reloadAndLog, interval, stopCh)
 }
 
-func readCAFiles(caPaths []string) ([][]byte, error) {
-	contents := make([][]byte, 0, len(caPaths))
-	for _, caPath := range caPaths {
-		pemCerts, err := os.ReadFile(caPath)
-		if err != nil {
-			return nil, fmt.Errorf("read CA file %q: %w", caPath, err)
-		}
-		contents = append(contents, pemCerts)
+// reloadAndLog is the periodic body of Run. wait.Until calls it immediately; that first pass is a no-op since
+// the files were just loaded by newReloadingTransport.
+func (t *reloadingTransport) reloadAndLog() {
+	changed, err := t.Reload()
+	if err != nil {
+		logrus.Errorf("Failed to reload CA certificates, keeping previously loaded ones: %v", err)
+		return
 	}
-
-	return contents, nil
+	if changed {
+		logrus.Infof("Reloaded CA certificates from %s", strings.Join(t.caPaths, ", "))
+	}
 }
 
-func newCATransport(caPaths []string, contents [][]byte) (*http.Transport, error) {
+// loadCAs reads and parses every CA file on top of the system pool. The raw file contents are returned
+// alongside the pool so that the caller can detect changes.
+func loadCAs(caPaths []string) (*x509.CertPool, [][]byte, error) {
 	rootCAs, _ := x509.SystemCertPool()
 	if rootCAs == nil {
 		rootCAs = x509.NewCertPool()
 	}
-	for i, pemCerts := range contents {
-		if ok := rootCAs.AppendCertsFromPEM(pemCerts); !ok {
-			return nil, fmt.Errorf("parse CA file %q: no PEM certificates found", caPaths[i])
+
+	contents := make([][]byte, 0, len(caPaths))
+	for _, caPath := range caPaths {
+		pemCerts, err := os.ReadFile(caPath)
+		if err != nil {
+			return nil, nil, fmt.Errorf("read CA file %q: %w", caPath, err)
 		}
+		if !rootCAs.AppendCertsFromPEM(pemCerts) {
+			return nil, nil, fmt.Errorf("parse CA file %q: no PEM certificates found", caPath)
+		}
+		contents = append(contents, pemCerts)
 	}
 
-	tr := http.DefaultTransport.(*http.Transport).Clone()
-	tr.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
-
-	return tr, nil
+	return rootCAs, contents, nil
 }

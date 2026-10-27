@@ -156,18 +156,21 @@ func TestReloadingTransport_KeepsOldOnError(t *testing.T) {
 	tr, err := newReloadingTransport([]string{caPath})
 	require.NoError(t, err)
 
-	for name, content := range map[string][]byte{
-		"garbage":      []byte("not a pem"),
-		"non-cert PEM": pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: []byte{1, 2, 3}}),
-		"empty":        {},
+	for _, tt := range []struct {
+		name    string
+		content []byte
+	}{
+		{name: "garbage", content: []byte("not a pem")},
+		{name: "non-cert PEM", content: pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: []byte{1, 2, 3}})},
+		{name: "empty", content: []byte{}},
 	} {
-		writeFile(t, caPath, content)
+		writeFile(t, caPath, tt.content)
 		changed, err := tr.Reload()
-		require.Error(t, err, name)
-		require.False(t, changed, name)
+		require.Error(t, err, tt.name)
+		require.False(t, changed, tt.name)
 
 		status, err := doGet(tr, srv.URL)
-		require.NoError(t, err, "old transport must keep working after a failed reload (%s)", name)
+		require.NoError(t, err, "old transport must keep working after a failed reload (%s)", tt.name)
 		require.Equal(t, http.StatusOK, status)
 	}
 
