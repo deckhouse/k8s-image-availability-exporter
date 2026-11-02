@@ -3,7 +3,7 @@ export SHELL := env PATH=$(PATH) /bin/sh
 
 GOOS?=$(shell go env GOOS)
 GOARCH?=$(shell go env GOARCH)
-GOLANGCI_VERSION = 2.5.0
+GOLANGCI_VERSION = 2.15.0
 HELM_DOCS_VERSION = 1.11.0
 
 ifeq ($(GOARCH),arm)
