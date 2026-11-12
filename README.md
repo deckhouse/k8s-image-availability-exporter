@@ -158,7 +158,7 @@ Usage of k8s-image-availability-exporter:
   -image-mirror value
     	Add a mirror repository (format: original=mirror)
   -namespace-label string
-    	namespace label for checks
+    	namespace label for checks, a namespace with the label set to false is skipped
   -skip-registry-cert-verification
     	whether to skip registries' certificate verification
 ```

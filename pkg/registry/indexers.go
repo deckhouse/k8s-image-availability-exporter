@@ -3,6 +3,7 @@ package registry
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/flant/k8s-image-availability-exporter/pkg/store"
@@ -71,7 +72,11 @@ func namespaceIndexers(nsLabel string) cache.Indexers {
 
 			labels := ns.GetLabels()
 			if len(labels) > 0 {
-				if _, ok := labels[nsLabel]; ok {
+				if value, ok := labels[nsLabel]; ok {
+					// A false value disables the namespace, any other value enables it.
+					if enabled, err := strconv.ParseBool(value); err == nil && !enabled {
+						return nil, nil
+					}
 					return []string{ns.GetName()}, nil
 				}
 			}
